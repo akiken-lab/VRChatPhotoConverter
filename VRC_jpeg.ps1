@@ -1,5 +1,7 @@
 Add-Type -AssemblyName System.Drawing
 
+#======設定=====================================================================
+
 #VRChat写真フォルダ
 $targetDirectiry = "C:\Users\****\Pictures\VRChat"
 #保存先パス
@@ -7,6 +9,7 @@ $saveDirectory = "C:\Users\****\Pictures\VRChat_Jpeg\"
 #バックアップ先パス
 $backupDirectory = "C:\Users\****\Pictures\VRChat_Backup\"
 
+#======関数=====================================================================
 
 #Exif 操作用関数
 function GetExifPropertyItem($image, $id)
@@ -42,7 +45,7 @@ function getDateTimeValue($dateTime)
   return $ascii
 }
 
-# $imageオブジェクトにPropertyItemを登録する。
+# $imageオブジェクトにExif時間情報を登録する。
 function SetDateTime($image, $dateTime)
 {
   $value = getDateTimeValue -dateTime $dateTime
@@ -50,6 +53,8 @@ function SetDateTime($image, $dateTime)
   SetPropertyItem -image $image -id 0x9004 -len 20 -type 2 -value $value
 }
 
+
+#======メイン処理=====================================================================
 
 #ファイルパス配列を宣言する
 $targetFileListArray01 = @()
