@@ -1,0 +1,151 @@
+<Window x:Class="PhotoConverterApp.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="設定" Height="820" Width="980" MinHeight="760" MinWidth="940"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="190"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="100"/>
+        </Grid.ColumnDefinitions>
+
+        <GroupBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Header="変換プロファイル" Margin="0,0,0,8">
+            <Grid Margin="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="240"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="240"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="編集対象"/>
+                <ComboBox x:Name="ProfileComboBox" Grid.Column="1" Margin="4" DisplayMemberPath="Name" SelectionChanged="ProfileComboBox_SelectionChanged"/>
+                <Button Grid.Column="2" Margin="4" Content="新規" Click="AddProfile_Click"/>
+                <Button Grid.Column="3" Margin="4" Content="削除" Click="RemoveProfile_Click"/>
+                <TextBlock Grid.Column="4" VerticalAlignment="Center" Text="既定"/>
+                <ComboBox x:Name="DefaultProfileComboBox" Grid.Column="5" Margin="4" DisplayMemberPath="Name"/>
+            </Grid>
+        </GroupBox>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="プロファイル名"/>
+        <TextBox x:Name="ProfileNameTextBox" Grid.Row="1" Grid.Column="1" Margin="4" TextChanged="ProfileNameTextBox_TextChanged"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="入力元フォルダ"/>
+        <TextBox x:Name="SourceDirTextBox" Grid.Row="2" Grid.Column="1" Margin="4"/>
+        <Button Grid.Row="2" Grid.Column="2" Margin="4" Content="参照" Click="BrowseSourceDir_Click"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="JPEG保管先"/>
+        <TextBox x:Name="JpegOutputDirTextBox" Grid.Row="3" Grid.Column="1" Margin="4"/>
+        <Button Grid.Row="3" Grid.Column="2" Margin="4" Content="参照" Click="BrowseJpegOutputDir_Click"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="PNG保存先"/>
+        <TextBox x:Name="PngArchiveDirTextBox" Grid.Row="4" Grid.Column="1" Margin="4"/>
+        <Button Grid.Row="4" Grid.Column="2" Margin="4" Content="参照" Click="BrowsePngArchiveDir_Click"/>
+
+        <UniformGrid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0" Columns="5">
+            <StackPanel Margin="4">
+                <TextBlock Text="PNG扱い"/>
+                <ComboBox x:Name="PngModeComboBox" SelectedIndex="0">
+                    <ComboBoxItem Content="Move"/>
+                    <ComboBoxItem Content="Copy"/>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Margin="4">
+                <TextBlock Text="同名競合"/>
+                <ComboBox x:Name="DuplicatePolicyComboBox" SelectedIndex="0">
+                    <ComboBoxItem Content="Rename"/>
+                    <ComboBoxItem Content="Overwrite"/>
+                    <ComboBoxItem Content="Skip"/>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Margin="4">
+                <TextBlock Text="JPEG品質(1-100)"/>
+                <TextBox x:Name="JpegQualityTextBox" Text="90"/>
+            </StackPanel>
+            <StackPanel Margin="4">
+                <TextBlock Text="更新直後ガード秒"/>
+                <TextBox x:Name="RecentGuardTextBox" Text="10"/>
+            </StackPanel>
+            <StackPanel Margin="4">
+                <TextBlock Text="ログ出力"/>
+                <ComboBox x:Name="LogLevelComboBox" SelectedIndex="2">
+                    <ComboBoxItem Content="Error"/>
+                    <ComboBoxItem Content="Warning"/>
+                    <ComboBoxItem Content="Information"/>
+                    <ComboBoxItem Content="Debug"/>
+                </ComboBox>
+            </StackPanel>
+        </UniformGrid>
+
+        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="4">
+            <CheckBox x:Name="RecursiveCheckBox" Content="サブフォルダを含む" Margin="0,0,24,0" IsChecked="True"/>
+            <CheckBox x:Name="DryRunCheckBox" Content="ドライラン" Margin="0,0,24,0"/>
+            <CheckBox x:Name="MonitorOnStartupCheckBox" Content="起動時に監視を開始"/>
+            <CheckBox x:Name="LaunchOnWindowsStartupCheckBox" Content="Windows起動時にアプリを起動" Margin="24,0,0,0"/>
+        </StackPanel>
+
+        <GroupBox Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3" Header="ゲーム紐づけ（監視対象）" Margin="0,8,0,0">
+            <Grid Margin="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="90"/>
+                </Grid.ColumnDefinitions>
+
+                <ComboBox x:Name="TargetModeComboBox" Grid.Row="0" Grid.Column="0" Margin="4" SelectedIndex="0">
+                    <ComboBoxItem Content="ExeOnly"/>
+                    <ComboBoxItem Content="Steam"/>
+                </ComboBox>
+                <TextBox x:Name="TargetExeNameTextBox" Grid.Row="0" Grid.Column="1" Margin="4" ToolTip="exe名 (例: vrchat.exe)"/>
+                <TextBox x:Name="TargetAppIdTextBox" Grid.Row="0" Grid.Column="2" Margin="4" ToolTip="Steam AppID(任意)"/>
+                <ComboBox x:Name="TargetProfileComboBox" Grid.Row="0" Grid.Column="3" Margin="4" DisplayMemberPath="Name"/>
+                <Button Grid.Row="0" Grid.Column="4" Margin="4" Content="追加" Click="AddTarget_Click"/>
+                <Button Grid.Row="0" Grid.Column="5" Margin="4" Content="削除" Click="RemoveTarget_Click"/>
+
+                <DataGrid x:Name="WatchTargetsGrid" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Margin="4"
+                          AutoGenerateColumns="False" CanUserAddRows="False" Height="150">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="90"/>
+                        <DataGridTextColumn Header="ExeName" Binding="{Binding ExeName}" Width="*"/>
+                        <DataGridTextColumn Header="AppID" Binding="{Binding AppId}" Width="90"/>
+                        <DataGridTextColumn Header="Profile" Binding="{Binding ProfileName}" Width="220"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Margin="4" Content="履歴DBリセット" Click="ResetHistoryDbRequest_Click"/>
+            <Button Margin="4" Content="保存" Click="Save_Click"/>
+            <Button Margin="4" Content="キャンセル" Click="Cancel_Click"/>
+        </StackPanel>
+
+        <TextBlock x:Name="StatusTextBlock" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3" Margin="4"/>
+    </Grid>
+</Window>

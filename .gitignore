@@ -1,0 +1,7 @@
+﻿# Build artifacts
+**/bin/
+**/obj/
+
+# Published outputs
+publish/
+dist/
