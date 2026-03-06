@@ -1,211 +1,353 @@
-using System.Collections.ObjectModel;
-using System.IO;
+﻿using System.IO;
+using System.Diagnostics;
+using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using Core.Abstractions;
 using Core.Models;
+using Infrastructure.Config;
 using Forms = System.Windows.Forms;
 
 namespace PhotoConverterApp;
 
 public partial class SettingsWindow : Window
 {
-    private readonly ObservableCollection<ConversionProfile> _profiles = new();
-    private readonly ObservableCollection<WatchTarget> _targets = new();
-    private string? _selectedProfileId;
-    private bool _isApplyingUi;
+    private readonly IConfigStore _configStore = new JsonConfigStore();
+    private readonly AppConfig _original;
+    private readonly AppConfig _draft;
+    private bool _isApplying;
+    private bool _isDirty;
+    private bool _closingByCode;
+    private bool _uiReady;
 
-    public AppConfig ResultConfig { get; private set; } = new();
+    public AppConfig? SavedConfig { get; private set; }
     public bool RequestHistoryReset { get; private set; }
 
-    public SettingsWindow(AppConfig initialConfig)
+    public SettingsWindow(AppConfig initial)
     {
         InitializeComponent();
-        WatchTargetsGrid.ItemsSource = _targets;
-        ProfileComboBox.ItemsSource = _profiles;
-        DefaultProfileComboBox.ItemsSource = _profiles;
-        TargetProfileComboBox.ItemsSource = _profiles;
-        ApplyConfig(initialConfig);
+        _original = CloneConfig(initial);
+        _draft = CloneConfig(initial);
+        EnsureDefaultRule(_draft);
+
+        LoadUiFromDraft();
+        _uiReady = true;
+        ValidateAndUpdateUi(showErrors: false);
     }
 
-    private static ConversionProfile CloneProfile(ConversionProfile src)
+    private static AppConfig CloneConfig(AppConfig source)
     {
-        return new ConversionProfile
+        return new AppConfig
         {
-            Id = src.Id,
-            Name = src.Name,
-            SourceDir = src.SourceDir,
-            JpegOutputDir = src.JpegOutputDir,
-            PngArchiveDir = src.PngArchiveDir,
-            PngHandlingMode = src.PngHandlingMode,
-            JpegQuality = src.JpegQuality,
-            IncludeSubdirectories = src.IncludeSubdirectories,
-            DuplicatePolicy = src.DuplicatePolicy,
-            DryRun = src.DryRun,
-            RecentFileGuardSeconds = src.RecentFileGuardSeconds
+            SourceDir = source.SourceDir,
+            JpegOutputDir = source.JpegOutputDir,
+            PngArchiveDir = source.PngArchiveDir,
+            PngHandlingMode = source.PngHandlingMode,
+            JpegQuality = source.JpegQuality,
+            IncludeSubdirectories = source.IncludeSubdirectories,
+            DuplicatePolicy = source.DuplicatePolicy,
+            DryRun = source.DryRun,
+            LogLevel = source.LogLevel,
+            LaunchOnWindowsStartup = source.LaunchOnWindowsStartup,
+            RecentFileGuardSeconds = source.RecentFileGuardSeconds,
+            MonitorEnabledOnStartup = source.MonitorEnabledOnStartup,
+            DefaultProfileId = source.DefaultProfileId,
+            Profiles = source.Profiles.Select(CloneRule).ToList(),
+            WatchTargets = source.WatchTargets.Select(t => new WatchTarget
+            {
+                Mode = t.Mode,
+                ExeName = t.ExeName,
+                AppId = t.AppId,
+                ProfileId = t.ProfileId,
+                ProfileName = t.ProfileName
+            }).ToList()
         };
     }
 
-    private void ApplyConfig(AppConfig config)
+    private static ConversionProfile CloneRule(ConversionProfile source)
     {
-        _isApplyingUi = true;
+        return new ConversionProfile
+        {
+            Id = source.Id,
+            Name = source.Name,
+            SourceDir = source.SourceDir,
+            JpegOutputDir = source.JpegOutputDir,
+            PngArchiveDir = source.PngArchiveDir,
+            PngHandlingMode = source.PngHandlingMode,
+            JpegQuality = source.JpegQuality,
+            IncludeSubdirectories = source.IncludeSubdirectories,
+            DuplicatePolicy = source.DuplicatePolicy,
+            DryRun = source.DryRun,
+            RecentFileGuardSeconds = source.RecentFileGuardSeconds
+        };
+    }
+
+    private static void EnsureDefaultRule(AppConfig config)
+    {
+        config.Profiles ??= new List<ConversionProfile>();
+        config.WatchTargets ??= new List<WatchTarget>();
+
+        if (config.Profiles.Count == 0)
+        {
+            config.Profiles.Add(new ConversionProfile
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = "VRChat_Default",
+                JpegQuality = 90,
+                IncludeSubdirectories = true,
+                RecentFileGuardSeconds = 10
+            });
+            config.LaunchOnWindowsStartup = true;
+        }
+
+        config.DefaultProfileId ??= config.Profiles[0].Id;
+    }
+
+    private ConversionProfile GetDefaultRule()
+    {
+        return _draft.Profiles.FirstOrDefault(p => p.Id == _draft.DefaultProfileId) ?? _draft.Profiles[0];
+    }
+
+    private void LoadUiFromDraft()
+    {
+        _isApplying = true;
         try
         {
-            _profiles.Clear();
-            foreach (var p in config.Profiles)
-            {
-                _profiles.Add(CloneProfile(p));
-            }
+            var rule = GetDefaultRule();
 
-            _targets.Clear();
-            foreach (var t in config.WatchTargets)
-            {
-                _targets.Add(new WatchTarget
-                {
-                    Mode = t.Mode,
-                    ExeName = t.ExeName,
-                    AppId = t.AppId,
-                    ProfileId = t.ProfileId,
-                    ProfileName = ResolveProfileName(t.ProfileId)
-                });
-            }
+            RuleNameTextBox.Text = rule.Name;
+            SourceDirTextBox.Text = rule.SourceDir;
+            JpegOutputDirTextBox.Text = rule.JpegOutputDir;
+            PngArchiveDirTextBox.Text = rule.PngArchiveDir;
+            IncludeSubdirectoriesCheckBox.IsChecked = rule.IncludeSubdirectories;
+            MonitorOnStartupCheckBox.IsChecked = _draft.MonitorEnabledOnStartup;
+            JpegQualitySlider.Value = Math.Clamp(rule.JpegQuality, 1, 100);
+            JpegQualityValueTextBlock.Text = ((int)JpegQualitySlider.Value).ToString();
 
-            _selectedProfileId = _profiles.FirstOrDefault()?.Id;
-            ProfileComboBox.SelectedItem = _profiles.FirstOrDefault(x => x.Id == _selectedProfileId);
-            DefaultProfileComboBox.SelectedItem = _profiles.FirstOrDefault(x => x.Id == config.DefaultProfileId) ?? _profiles.FirstOrDefault();
-            TargetProfileComboBox.SelectedItem = DefaultProfileComboBox.SelectedItem;
-            LogLevelComboBox.SelectedIndex = LogLevelToSelectedIndex(config.LogLevel);
-            MonitorOnStartupCheckBox.IsChecked = config.MonitorEnabledOnStartup;
-            LaunchOnWindowsStartupCheckBox.IsChecked = config.LaunchOnWindowsStartup;
-            ApplySelectedProfileToUi();
+            PngModeComboBox.SelectedIndex = rule.PngHandlingMode switch
+            {
+                PngHandlingMode.Copy => 1,
+                PngHandlingMode.Delete => 2,
+                _ => 0
+            };
+            UpdatePngArchiveEnabledState();
+            DuplicatePolicyComboBox.SelectedIndex = rule.DuplicatePolicy switch
+            {
+                DuplicatePolicy.Overwrite => 1,
+                DuplicatePolicy.Skip => 2,
+                _ => 0
+            };
+            RecentGuardTextBox.Text = rule.RecentFileGuardSeconds.ToString();
+            DryRunCheckBox.IsChecked = rule.DryRun;
+            LaunchOnWindowsStartupCheckBox.IsChecked = _draft.LaunchOnWindowsStartup;
+            LogLevelComboBox.SelectedIndex = _draft.LogLevel switch
+            {
+                AppLogLevel.Error => 0,
+                AppLogLevel.Warning => 1,
+                AppLogLevel.Debug => 3,
+                _ => 2
+            };
+
+            var watch = _draft.WatchTargets.FirstOrDefault(t => t.ProfileId == rule.Id) ?? _draft.WatchTargets.FirstOrDefault();
+            WatchExeNameTextBox.Text = watch?.ExeName ?? string.Empty;
         }
         finally
         {
-            _isApplyingUi = false;
+            _isApplying = false;
         }
     }
 
-    private void SaveSelectedProfileFromUi()
+    private void InputChangedCore()
     {
-        var profile = GetSelectedProfile();
-        if (profile is null)
+        if (_isApplying || !_uiReady)
         {
             return;
         }
 
-        if (!int.TryParse(JpegQualityTextBox.Text, out var quality))
+        _isDirty = true;
+        ValidateAndUpdateUi(showErrors: false);
+    }
+
+    private void TextInputChanged(object? sender, TextChangedEventArgs e)
+    {
+        InputChangedCore();
+    }
+
+    private void SelectionInputChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, PngModeComboBox))
         {
-            quality = 90;
+            UpdatePngArchiveEnabledState();
         }
 
-        if (!int.TryParse(RecentGuardTextBox.Text, out var guard))
+        InputChangedCore();
+    }
+
+    private void ToggleInputChanged(object? sender, RoutedEventArgs e)
+    {
+        InputChangedCore();
+    }
+
+    private void JpegQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (JpegQualityValueTextBlock is not null && JpegQualitySlider is not null)
         {
-            guard = 10;
+            JpegQualityValueTextBlock.Text = ((int)JpegQualitySlider.Value).ToString();
+        }
+        InputChangedCore();
+    }
+
+    private bool ValidateAndUpdateUi(bool showErrors)
+    {
+        if (!_uiReady || SaveButton is null || DirtyStateTextBlock is null || ValidationMessageTextBlock is null)
+        {
+            return false;
         }
 
-        profile.Name = string.IsNullOrWhiteSpace(ProfileNameTextBox.Text) ? "Profile" : ProfileNameTextBox.Text.Trim();
-        profile.SourceDir = SourceDirTextBox.Text.Trim();
-        profile.JpegOutputDir = JpegOutputDirTextBox.Text.Trim();
-        profile.PngArchiveDir = PngArchiveDirTextBox.Text.Trim();
-        profile.PngHandlingMode = PngModeComboBox.SelectedIndex == 0 ? PngHandlingMode.Move : PngHandlingMode.Copy;
-        profile.DuplicatePolicy = DuplicatePolicyComboBox.SelectedIndex switch
+        List<string> errors;
+        try
+        {
+            errors = ValidateInputs();
+        }
+        catch (Exception ex)
+        {
+            UiDiagnostics.LogException("Settings.ValidateAndUpdateUi", ex);
+            errors = new List<string> { "・入力値の検証中にエラーが発生しました。値を見直してください。" };
+        }
+
+        SaveButton.IsEnabled = _isDirty && errors.Count == 0;
+        DirtyStateTextBlock.Text = _isDirty ? "未保存の変更があります" : "変更はありません";
+        Title = _isDirty ? "設定 *" : "設定";
+        ValidationMessageTextBlock.Text = showErrors || _isDirty ? string.Join(Environment.NewLine, errors) : string.Empty;
+        return errors.Count == 0;
+    }
+
+    private List<string> ValidateInputs()
+    {
+        var errors = new List<string>();
+
+        var source = SourceDirTextBox?.Text?.Trim() ?? string.Empty;
+        var jpegOut = JpegOutputDirTextBox?.Text?.Trim() ?? string.Empty;
+        var pngArchive = PngArchiveDirTextBox?.Text?.Trim() ?? string.Empty;
+        var exeName = WatchExeNameTextBox?.Text?.Trim() ?? string.Empty;
+        var pngMode = PngModeComboBox?.SelectedIndex ?? 0;
+        var isPngDeleteMode = pngMode == 2;
+
+        if (string.IsNullOrWhiteSpace(RuleNameTextBox?.Text))
+        {
+            errors.Add("・ルール名を入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            errors.Add("・入力フォルダを指定してください。");
+        }
+        else if (!Directory.Exists(source))
+        {
+            errors.Add("・入力フォルダが存在しません。");
+        }
+
+        if (string.IsNullOrWhiteSpace(jpegOut))
+        {
+            errors.Add("・JPEG出力先を指定してください。");
+        }
+
+        if (!isPngDeleteMode && string.IsNullOrWhiteSpace(pngArchive))
+        {
+            errors.Add("・PNG保管先を指定してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(exeName))
+        {
+            errors.Add("・監視対象EXEを指定してください。");
+        }
+
+        if (!int.TryParse(RecentGuardTextBox?.Text?.Trim(), out var guard) || guard is < 0 or > 600)
+        {
+            errors.Add("・除外秒数は0〜600の整数で入力してください。");
+        }
+
+        if (!string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(jpegOut))
+        {
+            if (IsSameOrNested(source, jpegOut) || IsSameOrNested(jpegOut, source))
+            {
+                errors.Add("・入力フォルダとJPEG出力先を同一または内包関係にできません。");
+            }
+        }
+
+        if (!isPngDeleteMode && !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(pngArchive))
+        {
+            if (IsSameOrNested(source, pngArchive) || IsSameOrNested(pngArchive, source))
+            {
+                errors.Add("・入力フォルダとPNG保管先を同一または内包関係にできません。");
+            }
+        }
+
+        if (!isPngDeleteMode && !string.IsNullOrWhiteSpace(jpegOut) && !string.IsNullOrWhiteSpace(pngArchive))
+        {
+            if (IsSameOrNested(jpegOut, pngArchive) || IsSameOrNested(pngArchive, jpegOut))
+            {
+                errors.Add("・JPEG出力先とPNG保管先を同一または内包関係にできません。");
+            }
+        }
+
+        return errors;
+    }
+
+    private static bool IsSameOrNested(string a, string b)
+    {
+        var normA = TryNormalizePath(a);
+        var normB = TryNormalizePath(b);
+        if (normA is null || normB is null)
+        {
+            return false;
+        }
+
+        return normA.Equals(normB, StringComparison.OrdinalIgnoreCase) || normB.StartsWith(normA, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? TryNormalizePath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private bool ApplyUiToDraft()
+    {
+        if (!ValidateAndUpdateUi(showErrors: true))
+        {
+            return false;
+        }
+
+        var rule = GetDefaultRule();
+        rule.Name = RuleNameTextBox.Text.Trim();
+        rule.SourceDir = SourceDirTextBox.Text.Trim();
+        rule.JpegOutputDir = JpegOutputDirTextBox.Text.Trim();
+        rule.PngArchiveDir = PngArchiveDirTextBox.Text.Trim();
+        rule.IncludeSubdirectories = IncludeSubdirectoriesCheckBox.IsChecked == true;
+        rule.JpegQuality = (int)JpegQualitySlider.Value;
+        rule.PngHandlingMode = PngModeComboBox.SelectedIndex switch
+        {
+            1 => PngHandlingMode.Copy,
+            2 => PngHandlingMode.Delete,
+            _ => PngHandlingMode.Move
+        };
+        rule.DuplicatePolicy = DuplicatePolicyComboBox.SelectedIndex switch
         {
             1 => DuplicatePolicy.Overwrite,
             2 => DuplicatePolicy.Skip,
             _ => DuplicatePolicy.Rename
         };
-        profile.JpegQuality = quality;
-        profile.IncludeSubdirectories = RecursiveCheckBox.IsChecked == true;
-        profile.DryRun = DryRunCheckBox.IsChecked == true;
-        profile.RecentFileGuardSeconds = guard;
-        RefreshProfileBindings();
-    }
+        rule.RecentFileGuardSeconds = int.Parse(RecentGuardTextBox.Text.Trim());
+        rule.DryRun = DryRunCheckBox.IsChecked == true;
 
-    private void ApplySelectedProfileToUi()
-    {
-        var profile = GetSelectedProfile();
-        if (profile is null)
-        {
-            return;
-        }
-
-        ProfileNameTextBox.Text = profile.Name;
-        SourceDirTextBox.Text = profile.SourceDir;
-        JpegOutputDirTextBox.Text = profile.JpegOutputDir;
-        PngArchiveDirTextBox.Text = profile.PngArchiveDir;
-        PngModeComboBox.SelectedIndex = profile.PngHandlingMode == PngHandlingMode.Move ? 0 : 1;
-        DuplicatePolicyComboBox.SelectedIndex = profile.DuplicatePolicy switch
-        {
-            DuplicatePolicy.Rename => 0,
-            DuplicatePolicy.Overwrite => 1,
-            _ => 2
-        };
-        JpegQualityTextBox.Text = profile.JpegQuality.ToString();
-        RecentGuardTextBox.Text = profile.RecentFileGuardSeconds.ToString();
-        RecursiveCheckBox.IsChecked = profile.IncludeSubdirectories;
-        DryRunCheckBox.IsChecked = profile.DryRun;
-    }
-
-    private ConversionProfile? GetSelectedProfile()
-    {
-        return _profiles.FirstOrDefault(x => x.Id == _selectedProfileId) ?? _profiles.FirstOrDefault();
-    }
-
-    private string ResolveProfileName(string? profileId)
-    {
-        if (string.IsNullOrWhiteSpace(profileId))
-        {
-            return "(Default)";
-        }
-
-        return _profiles.FirstOrDefault(x => x.Id == profileId)?.Name ?? profileId;
-    }
-
-    private void RefreshProfileBindings()
-    {
-        ProfileComboBox.Items.Refresh();
-        DefaultProfileComboBox.Items.Refresh();
-        TargetProfileComboBox.Items.Refresh();
-        foreach (var target in _targets)
-        {
-            target.ProfileName = ResolveProfileName(target.ProfileId);
-        }
-
-        WatchTargetsGrid.Items.Refresh();
-    }
-
-    private AppConfig BuildConfig()
-    {
-        SaveSelectedProfileFromUi();
-        var defaultProfile = DefaultProfileComboBox.SelectedItem as ConversionProfile ?? _profiles.FirstOrDefault();
-
-        return new AppConfig
-        {
-            LogLevel = LogLevelFromSelectedIndex(LogLevelComboBox.SelectedIndex),
-            MonitorEnabledOnStartup = MonitorOnStartupCheckBox.IsChecked == true,
-            LaunchOnWindowsStartup = LaunchOnWindowsStartupCheckBox.IsChecked == true,
-            DefaultProfileId = defaultProfile?.Id,
-            Profiles = _profiles.Select(CloneProfile).ToList(),
-            WatchTargets = _targets.Select(t => new WatchTarget
-            {
-                Mode = t.Mode,
-                ExeName = t.ExeName,
-                AppId = t.AppId,
-                ProfileId = t.ProfileId ?? defaultProfile?.Id,
-                ProfileName = ResolveProfileName(t.ProfileId ?? defaultProfile?.Id)
-            }).ToList()
-        };
-    }
-
-    private static int LogLevelToSelectedIndex(AppLogLevel level) =>
-        level switch
-        {
-            AppLogLevel.Error => 0,
-            AppLogLevel.Warning => 1,
-            AppLogLevel.Debug => 3,
-            _ => 2
-        };
-
-    private static AppLogLevel LogLevelFromSelectedIndex(int selectedIndex) =>
-        selectedIndex switch
+        _draft.LogLevel = LogLevelComboBox.SelectedIndex switch
         {
             0 => AppLogLevel.Error,
             1 => AppLogLevel.Warning,
@@ -213,181 +355,213 @@ public partial class SettingsWindow : Window
             _ => AppLogLevel.Information
         };
 
-    private void AddProfile_Click(object sender, RoutedEventArgs e)
-    {
-        SaveSelectedProfileFromUi();
-        var profile = new ConversionProfile
+        _draft.MonitorEnabledOnStartup = MonitorOnStartupCheckBox.IsChecked == true;
+        _draft.LaunchOnWindowsStartup = LaunchOnWindowsStartupCheckBox.IsChecked == true;
+        _draft.DefaultProfileId = rule.Id;
+
+        var exeName = WatchExeNameTextBox.Text.Trim();
+        var watch = _draft.WatchTargets.FirstOrDefault(t => t.ProfileId == rule.Id) ?? _draft.WatchTargets.FirstOrDefault();
+        if (watch is null)
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Name = $"Profile {_profiles.Count + 1}"
-        };
-        _profiles.Add(profile);
-        _selectedProfileId = profile.Id;
-        ProfileComboBox.SelectedItem = profile;
-        if (DefaultProfileComboBox.SelectedItem is null)
+            _draft.WatchTargets.Add(new WatchTarget
+            {
+                Mode = WatchTargetMode.ExeOnly,
+                ExeName = exeName,
+                AppId = null,
+                ProfileId = rule.Id,
+                ProfileName = rule.Name
+            });
+        }
+        else
         {
-            DefaultProfileComboBox.SelectedItem = profile;
+            watch.Mode = WatchTargetMode.ExeOnly;
+            watch.ExeName = exeName;
+            watch.AppId = null;
+            watch.ProfileId = rule.Id;
+            watch.ProfileName = rule.Name;
         }
 
-        ApplySelectedProfileToUi();
-        RefreshProfileBindings();
+        if (CreateMissingFoldersCheckBox.IsChecked == true)
+        {
+            Directory.CreateDirectory(rule.JpegOutputDir);
+            if (rule.PngHandlingMode != PngHandlingMode.Delete)
+            {
+                Directory.CreateDirectory(rule.PngArchiveDir);
+            }
+        }
+
+        return true;
     }
 
-    private void RemoveProfile_Click(object sender, RoutedEventArgs e)
+    private void UpdatePngArchiveEnabledState()
     {
-        var selected = GetSelectedProfile();
-        if (selected is null || _profiles.Count <= 1)
+        var enabled = (PngModeComboBox?.SelectedIndex ?? 0) != 2;
+        if (PngArchiveDirTextBox is not null)
         {
-            return;
+            PngArchiveDirTextBox.IsEnabled = enabled;
         }
-
-        var removedId = selected.Id;
-        _profiles.Remove(selected);
-        var fallback = _profiles[0];
-        _selectedProfileId = fallback.Id;
-
-        foreach (var target in _targets.Where(t => string.Equals(t.ProfileId, removedId, StringComparison.OrdinalIgnoreCase)))
+        if (BrowsePngArchiveDirButton is not null)
         {
-            target.ProfileId = fallback.Id;
-            target.ProfileName = fallback.Name;
+            BrowsePngArchiveDirButton.IsEnabled = enabled;
         }
-
-        if (DefaultProfileComboBox.SelectedItem is ConversionProfile def && string.Equals(def.Id, removedId, StringComparison.OrdinalIgnoreCase))
+        if (PngArchiveLabelTextBlock is not null)
         {
-            DefaultProfileComboBox.SelectedItem = fallback;
-        }
-
-        ProfileComboBox.SelectedItem = fallback;
-        ApplySelectedProfileToUi();
-        RefreshProfileBindings();
-    }
-
-    private void ProfileComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (_isApplyingUi)
-        {
-            return;
-        }
-
-        SaveSelectedProfileFromUi();
-        if (ProfileComboBox.SelectedItem is ConversionProfile profile)
-        {
-            _selectedProfileId = profile.Id;
-            ApplySelectedProfileToUi();
-        }
-    }
-
-    private void ProfileNameTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-    {
-        if (_isApplyingUi)
-        {
-            return;
-        }
-
-        SaveSelectedProfileFromUi();
-    }
-
-    private void AddTarget_Click(object sender, RoutedEventArgs e)
-    {
-        var exe = TargetExeNameTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(exe))
-        {
-            System.Windows.MessageBox.Show("exe名を入力してください。", "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        int? appId = null;
-        if (int.TryParse(TargetAppIdTextBox.Text.Trim(), out var parsed))
-        {
-            appId = parsed;
-        }
-
-        var profile = TargetProfileComboBox.SelectedItem as ConversionProfile ??
-                      DefaultProfileComboBox.SelectedItem as ConversionProfile ??
-                      _profiles.First();
-
-        _targets.Add(new WatchTarget
-        {
-            Mode = TargetModeComboBox.SelectedIndex == 1 ? WatchTargetMode.Steam : WatchTargetMode.ExeOnly,
-            ExeName = exe,
-            AppId = appId,
-            ProfileId = profile.Id,
-            ProfileName = profile.Name
-        });
-
-        TargetExeNameTextBox.Clear();
-        TargetAppIdTextBox.Clear();
-    }
-
-    private void RemoveTarget_Click(object sender, RoutedEventArgs e)
-    {
-        if (WatchTargetsGrid.SelectedItem is WatchTarget target)
-        {
-            _targets.Remove(target);
-        }
-    }
-
-    private void BrowseSourceDir_Click(object sender, RoutedEventArgs e)
-    {
-        var result = BrowseFolder(SourceDirTextBox.Text);
-        if (!string.IsNullOrWhiteSpace(result))
-        {
-            SourceDirTextBox.Text = result;
-        }
-    }
-
-    private void BrowseJpegOutputDir_Click(object sender, RoutedEventArgs e)
-    {
-        var result = BrowseFolder(JpegOutputDirTextBox.Text);
-        if (!string.IsNullOrWhiteSpace(result))
-        {
-            JpegOutputDirTextBox.Text = result;
-        }
-    }
-
-    private void BrowsePngArchiveDir_Click(object sender, RoutedEventArgs e)
-    {
-        var result = BrowseFolder(PngArchiveDirTextBox.Text);
-        if (!string.IsNullOrWhiteSpace(result))
-        {
-            PngArchiveDirTextBox.Text = result;
-        }
-    }
-
-    private static string? BrowseFolder(string currentPath)
-    {
-        using var dialog = new Forms.FolderBrowserDialog
-        {
-            InitialDirectory = Directory.Exists(currentPath) ? currentPath : string.Empty,
-            ShowNewFolderButton = true
-        };
-        return dialog.ShowDialog() == Forms.DialogResult.OK ? dialog.SelectedPath : null;
-    }
-
-    private void ResetHistoryDbRequest_Click(object sender, RoutedEventArgs e)
-    {
-        var result = System.Windows.MessageBox.Show(
-            "保存時に履歴DBリセットを実行します。続行しますか？",
-            "履歴DBリセット確認",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-        if (result == MessageBoxResult.Yes)
-        {
-            RequestHistoryReset = true;
-            StatusTextBlock.Text = "履歴DBリセット要求: ON";
+            PngArchiveLabelTextBlock.Opacity = enabled ? 1.0 : 0.6;
         }
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        ResultConfig = BuildConfig();
+        if (!ApplyUiToDraft())
+        {
+            return;
+        }
+
+        SavedConfig = CloneConfig(_draft);
+        _closingByCode = true;
         DialogResult = true;
         Close();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
+        _closingByCode = true;
         DialogResult = false;
         Close();
     }
+
+    private void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingByCode || !_isDirty)
+        {
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            "未保存の変更があります。保存しますか？",
+            "確認",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result == System.Windows.MessageBoxResult.Cancel)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (result == System.Windows.MessageBoxResult.No)
+        {
+            return;
+        }
+
+        if (!ApplyUiToDraft())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        SavedConfig = CloneConfig(_draft);
+        DialogResult = true;
+    }
+
+    private void ResetHistoryDb_Click(object sender, RoutedEventArgs e)
+    {
+        var result = System.Windows.MessageBox.Show(
+            "履歴DBをリセットします。重複判定履歴が消えます。実行しますか？",
+            "確認",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            RequestHistoryReset = true;
+            _isDirty = true;
+            ValidateAndUpdateUi(showErrors: false);
+        }
+    }
+
+    private void OpenSettingsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var result = System.Windows.MessageBox.Show(
+            "設定フォルダを開きます。よろしいですか？",
+            "確認",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var path = _configStore.GetDataDirectory();
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = path,
+            UseShellExecute = true
+        });
+    }
+
+    private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var result = System.Windows.MessageBox.Show(
+            "ログフォルダを開きます。よろしいですか？",
+            "確認",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var path = _configStore.GetLogDirectory();
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = path,
+            UseShellExecute = true
+        });
+    }
+
+    private void BrowseSourceDir_Click(object sender, RoutedEventArgs e)
+    {
+        var path = BrowseFolder(SourceDirTextBox.Text);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            SourceDirTextBox.Text = path;
+        }
+    }
+
+    private void BrowseJpegOutputDir_Click(object sender, RoutedEventArgs e)
+    {
+        var path = BrowseFolder(JpegOutputDirTextBox.Text);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            JpegOutputDirTextBox.Text = path;
+        }
+    }
+
+    private void BrowsePngArchiveDir_Click(object sender, RoutedEventArgs e)
+    {
+        var path = BrowseFolder(PngArchiveDirTextBox.Text);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            PngArchiveDirTextBox.Text = path;
+        }
+    }
+
+    private static string? BrowseFolder(string current)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            InitialDirectory = Directory.Exists(current) ? current : string.Empty,
+            ShowNewFolderButton = true
+        };
+
+        return dialog.ShowDialog() == Forms.DialogResult.OK ? dialog.SelectedPath : null;
+    }
 }
+
+
+

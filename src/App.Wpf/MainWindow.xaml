@@ -1,295 +1,140 @@
-<Window x:Class="PhotoConverterApp.MainWindow"
+﻿<Window x:Class="PhotoConverterApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        Title="Game Photo Auto Converter v1.4"
-        Height="860"
-        Width="1280"
-        MinHeight="760"
-        MinWidth="1100"
-        Background="#F4F6F8">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        Title="Game Photo Auto Converter"
+        Height="760"
+        Width="1120"
+        MinHeight="680"
+        MinWidth="980"
+        Background="#F5F7FB">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="0,0,1,0">
-            <Grid Margin="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Text="Game Photo Auto Converter" FontWeight="Bold" FontSize="16" Margin="8,8,8,16"/>
-
-                <Button x:Name="NavDashboardButton" Grid.Row="1" Margin="4" Height="42" Click="NavDashboard_Click" HorizontalContentAlignment="Left" Content="Dashboard"/>
-                <Button x:Name="NavProfilesButton" Grid.Row="2" Margin="4" Height="42" Click="NavProfiles_Click" HorizontalContentAlignment="Left" Content="Profiles"/>
-                <Button x:Name="NavLogsButton" Grid.Row="3" Margin="4" Height="42" Click="NavLogs_Click" HorizontalContentAlignment="Left" Content="Logs"/>
-
-                <TextBlock Grid.Row="5" Text="v1.4 Modern UI Update" Margin="8,8,8,8" Foreground="#6B7280" FontSize="12"/>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Column="1" Margin="20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="PageTitleTextBlock" Text="Dashboard" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="設定を保存" Margin="0,0,8,0" Padding="16,8" Click="SaveSettings_Click"/>
-                    <Border x:Name="ToastBorder" Background="#ECFDF3" BorderBrush="#4CAF50" BorderThickness="1" CornerRadius="8" Padding="10,6" Visibility="Collapsed">
-                        <TextBlock x:Name="ToastTextBlock" Foreground="#166534" FontWeight="SemiBold"/>
-                    </Border>
-                </StackPanel>
-            </Grid>
-
-            <Grid Grid.Row="1" Margin="0,16,0,0">
-                <Grid.Resources>
-                    <Style TargetType="Border">
-                        <Setter Property="CornerRadius" Value="12"/>
-                    </Style>
-                </Grid.Resources>
-
-                <Grid x:Name="DashboardView">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="3*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,16,16">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="監視ステータス" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,12"/>
-                            <Grid Width="180" Height="180">
-                                <Ellipse x:Name="StatusIndicatorEllipse" Fill="#DC2626"/>
-                                <Ellipse Fill="#FFFFFF" Width="130" Height="130"/>
-                                <TextBlock x:Name="StatusIndicatorTextBlock" Text="停止" FontSize="22" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Grid>
-                            <TextBlock x:Name="StatusTextBlock" Text="監視は停止中" Margin="0,16,0,0" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="0" Grid.Column="1" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,0,16">
-                        <StackPanel>
-                            <TextBlock Text="マニュアル実行" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="今すぐ実行" Padding="26,14" FontSize="16" Margin="0,0,10,0" Click="RunNow_Click"/>
-                                <Button Content="監視開始" Padding="22,14" FontSize="16" Margin="0,0,10,0" Click="StartMonitor_Click"/>
-                                <Button Content="監視停止" Padding="22,14" FontSize="16" Click="StopMonitor_Click"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                <TextBlock Text="実行プロファイル:" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="RunProfileComboBox" Width="280" Margin="10,0,0,0" DisplayMemberPath="Name"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="1" Grid.Column="1" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,0,16">
-                        <UniformGrid Columns="3">
-                            <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,10,0">
-                                <StackPanel>
-                                    <TextBlock Text="スキャン済み" Foreground="#6B7280"/>
-                                    <TextBlock x:Name="ScannedCountTextBlock" Text="0" FontSize="36" FontWeight="Bold"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,10,0">
-                                <StackPanel>
-                                    <TextBlock Text="変換成功" Foreground="#6B7280"/>
-                                    <TextBlock x:Name="ConvertedCountTextBlock" Text="0" FontSize="36" FontWeight="Bold" Foreground="#059669"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16">
-                                <StackPanel>
-                                    <TextBlock Text="エラー" Foreground="#6B7280"/>
-                                    <TextBlock x:Name="ErrorCountTextBlock" Text="0" FontSize="36" FontWeight="Bold" Foreground="#DC2626"/>
-                                </StackPanel>
-                            </Border>
-                        </UniformGrid>
-                    </Border>
-
-                    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16">
-                        <StackPanel>
-                            <TextBlock x:Name="CurrentFileTextBlock" Text="待機中" Margin="0,0,0,6"/>
-                            <ProgressBar x:Name="ProgressBar" Height="18" Minimum="0" Maximum="100" Value="0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,16,0,0">
-                        <TextBox x:Name="SummaryTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
-                    </Border>
-                </Grid>
-
-                <Grid x:Name="ProfilesView" Visibility="Collapsed">
-                    <TabControl>
-                        <TabItem Header="Profile Settings">
-                            <Grid Margin="0,12,0,0">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="190"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="100"/>
-                                </Grid.ColumnDefinitions>
-
-                                <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,0,12">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="編集対象" VerticalAlignment="Center"/>
-                                        <ComboBox x:Name="ProfileEditorComboBox" Width="260" Margin="12,0,8,0" DisplayMemberPath="Name" SelectionChanged="ProfileEditorComboBox_SelectionChanged"/>
-                                        <Button Content="新規" Margin="0,0,8,0" Click="AddProfile_Click"/>
-                                        <Button Content="削除" Click="RemoveProfile_Click"/>
-                                        <TextBlock Text="既定プロファイル" Margin="24,0,8,0" VerticalAlignment="Center"/>
-                                        <ComboBox x:Name="DefaultProfileComboBox" Width="260" DisplayMemberPath="Name"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="プロファイル名"/>
-                                <TextBox x:Name="ProfileNameTextBox" Grid.Row="1" Grid.Column="1" Margin="4" TextChanged="ProfileNameTextBox_TextChanged"/>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="入力元フォルダ"/>
-                                <TextBox x:Name="SourceDirTextBox" Grid.Row="2" Grid.Column="1" Margin="4" AllowDrop="True" PreviewDragOver="PathTextBox_PreviewDragOver" Drop="PathTextBox_Drop"/>
-                                <Button Grid.Row="2" Grid.Column="2" Margin="4" Content="参照" Click="BrowseSourceDir_Click"/>
-
-                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="JPEG保存先"/>
-                                <TextBox x:Name="JpegOutputDirTextBox" Grid.Row="3" Grid.Column="1" Margin="4" AllowDrop="True" PreviewDragOver="PathTextBox_PreviewDragOver" Drop="PathTextBox_Drop"/>
-                                <Button Grid.Row="3" Grid.Column="2" Margin="4" Content="参照" Click="BrowseJpegOutputDir_Click"/>
-
-                                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="PNG保管先"/>
-                                <TextBox x:Name="PngArchiveDirTextBox" Grid.Row="4" Grid.Column="1" Margin="4" AllowDrop="True" PreviewDragOver="PathTextBox_PreviewDragOver" Drop="PathTextBox_Drop"/>
-                                <Button Grid.Row="4" Grid.Column="2" Margin="4" Content="参照" Click="BrowsePngArchiveDir_Click"/>
-
-                                <Border Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,12,0,0">
-                                    <UniformGrid Columns="5">
-                                        <StackPanel Margin="4">
-                                            <TextBlock Text="JPEG品質"/>
-                                            <Slider x:Name="JpegQualitySlider" Minimum="1" Maximum="100" Value="90" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                                            <TextBlock x:Name="JpegQualityValueTextBlock" Text="90" HorizontalAlignment="Right"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="4">
-                                            <TextBlock Text="PNG扱い"/>
-                                            <ComboBox x:Name="PngModeComboBox">
-                                                <ComboBoxItem Content="Move"/>
-                                                <ComboBoxItem Content="Copy"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Margin="4">
-                                            <TextBlock Text="重複時動作"/>
-                                            <ComboBox x:Name="DuplicatePolicyComboBox">
-                                                <ComboBoxItem Content="Rename"/>
-                                                <ComboBoxItem Content="Overwrite"/>
-                                                <ComboBoxItem Content="Skip"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Margin="4">
-                                            <TextBlock Text="更新待機秒数"/>
-                                            <TextBox x:Name="RecentGuardTextBox" Text="10"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="4">
-                                            <CheckBox x:Name="RecursiveCheckBox" Content="サブフォルダを含む" Margin="0,6,0,4"/>
-                                            <CheckBox x:Name="DryRunCheckBox" Content="DryRun"/>
-                                        </StackPanel>
-                                    </UniformGrid>
-                                </Border>
-                            </Grid>
-                        </TabItem>
-
-                        <TabItem Header="Automation Settings">
-                            <Grid Margin="0,12,0,0">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,0,12">
-                                    <WrapPanel>
-                                        <CheckBox x:Name="MonitorOnStartupCheckBox" Content="起動時に監視を開始" Margin="0,0,20,0"/>
-                                        <CheckBox x:Name="LaunchOnWindowsStartupCheckBox" Content="Windows起動時にアプリを起動（最小化）" Margin="0,0,20,0"/>
-                                        <TextBlock Text="ログレベル" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox x:Name="LogLevelComboBox" Width="180">
-                                            <ComboBoxItem Content="Error"/>
-                                            <ComboBoxItem Content="Warning"/>
-                                            <ComboBoxItem Content="Information"/>
-                                            <ComboBoxItem Content="Debug"/>
-                                        </ComboBox>
-                                    </WrapPanel>
-                                </Border>
-
-                                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="*"/>
-                                        </Grid.RowDefinitions>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="220"/>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <TextBox x:Name="TargetExeNameTextBox" Grid.Row="0" Grid.Column="0" Margin="4" ToolTip="対象EXEパス"/>
-                                        <ComboBox x:Name="TargetProfileComboBox" Grid.Row="0" Grid.Column="1" Margin="4" DisplayMemberPath="Name"/>
-                                        <Button Grid.Row="0" Grid.Column="2" Margin="4" Content="追加" Click="AddTarget_Click"/>
-                                        <Button Grid.Row="0" Grid.Column="3" Margin="4" Content="削除" Click="RemoveTarget_Click"/>
-
-                                        <DataGrid x:Name="WatchTargetsGrid"
-                                                  Grid.Row="1"
-                                                  Grid.Column="0"
-                                                  Grid.ColumnSpan="4"
-                                                  Margin="4"
-                                                  AutoGenerateColumns="False"
-                                                  CanUserAddRows="False">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="ExeName" Binding="{Binding ExeName}" Width="*"/>
-                                                <DataGridTextColumn Header="Profile" Binding="{Binding ProfileName}" Width="220"/>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </TabItem>
-                    </TabControl>
-                </Grid>
-
-                <Grid x:Name="LogsView" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                        <Button Content="ログフォルダを開く" Margin="0,0,8,0" Click="OpenLogs_Click"/>
-                        <Button Content="出力フォルダを開く" Margin="0,0,8,0" Click="OpenOutput_Click"/>
-                        <Button Content="履歴DBリセット" Click="ResetHistoryDb_Click"/>
-                    </StackPanel>
-                    <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16">
-                        <TextBox x:Name="LogsInfoTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
-                    </Border>
-                </Grid>
-            </Grid>
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="ステータス" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="常駐運用の状態確認と即時操作" Foreground="#5B6474" Margin="0,4,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button x:Name="OpenSettingsButton" Content="設定..." Style="{StaticResource SecondaryButtonStyle}" Click="OpenSettings_Click"/>
+            </StackPanel>
         </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.2*"/>
+                <ColumnDefinition Width="1.8*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource PanelBorderStyle}" Margin="0,0,12,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="監視状態" FontSize="18" FontWeight="SemiBold"/>
+                            <Border x:Name="StatusBadge" Margin="10,0,0,0" Padding="10,4" CornerRadius="10" Background="#E5E7EB">
+                                <TextBlock x:Name="StatusBadgeTextBlock" Text="停止中" FontWeight="SemiBold"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="StatusSummaryTextBlock" Text="監視は停止しています。" Foreground="#5B6474" Margin="0,8,0,0"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <ToggleButton x:Name="MonitorToggleButton" Width="118" Height="30" FontSize="11" Checked="MonitorToggleButton_Checked" Unchecked="MonitorToggleButton_Unchecked">
+                                停止中
+                            </ToggleButton>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Width="290" Margin="20,0,0,0">
+                        <TextBlock Text="実行対象" FontWeight="SemiBold" Foreground="#5B6474"/>
+                        <DockPanel Margin="0,4,0,8">
+                            <Button x:Name="CopyTargetExeButton" Content="📋" Width="26" Height="22" Margin="6,0,0,0" Click="CopyTargetExe_Click" DockPanel.Dock="Right"/>
+                            <TextBlock x:Name="TargetExeTextBlock" Text="未設定" TextTrimming="CharacterEllipsis" ToolTip="未設定"/>
+                        </DockPanel>
+                        <TextBlock Text="使用ルール" FontWeight="SemiBold" Foreground="#5B6474"/>
+                        <TextBlock x:Name="ActiveRuleTextBlock" Text="未設定" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource PanelBorderStyle}">
+                <StackPanel>
+                    <TextBlock Text="直近サマリ" FontSize="18" FontWeight="SemiBold"/>
+                    <UniformGrid Columns="4" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="最終実行" Foreground="#5B6474"/>
+                            <TextBlock x:Name="LastRunTextBlock" Text="未実行" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="スキャン" Foreground="#5B6474"/>
+                            <TextBlock x:Name="ScannedCountTextBlock" Text="0" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="成功" Foreground="#5B6474"/>
+                            <TextBlock x:Name="ConvertedCountTextBlock" Text="0" FontWeight="SemiBold" Foreground="#0E7A43"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="エラー" Foreground="#5B6474"/>
+                            <TextBlock x:Name="ErrorCountTextBlock" Text="0" FontWeight="SemiBold" Foreground="#B42318"/>
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="LastErrorBorder" Grid.Column="0" Style="{StaticResource PanelBorderStyle}" Margin="0,0,12,0" BorderBrush="#FECACA" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="最後のエラー" FontSize="18" FontWeight="SemiBold" Foreground="#B42318"/>
+                    <TextBlock x:Name="LastErrorTextBlock" Margin="0,10,0,10" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="ログ" Style="{StaticResource SecondaryButtonStyle}" Click="OpenLogs_Click" Margin="0,0,8,0"/>
+                        <Button Content="エラーをコピー" Style="{StaticResource SecondaryButtonStyle}" Click="CopyLastError_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource PanelBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="最新ログ" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBox x:Name="LogTailTextBox" Grid.Row="1" Margin="0,10,0,10" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#FBFCFE"/>
+                    <Border x:Name="LogEmptyStateBorder" Grid.Row="1" Margin="0,10,0,10" Background="#FBFCFE" BorderBrush="#D0D5DD" BorderThickness="1" CornerRadius="8" Padding="12" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Text="まだ実行ログがありません。" FontWeight="SemiBold"/>
+                            <TextBlock Text="下の「今すぐ変換」または監視をオンにして開始してください。" Margin="0,6,0,0" Foreground="#5B6474" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button Content="ログ" Style="{StaticResource SecondaryButtonStyle}" Click="OpenLogs_Click" Margin="0,0,8,0"/>
+                        <Button Content="JPEG出力先" Style="{StaticResource SecondaryButtonStyle}" Click="OpenOutput_Click" Margin="0,0,8,0"/>
+                        <Button x:Name="RunNowButton" Content="今すぐ変換" Style="{StaticResource PrimaryButtonStyle}" Click="RunNow_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock x:Name="ProgressTextBlock" Grid.Row="3" Margin="2,12,0,0" Foreground="#5B6474" Text="待機中"/>
     </Grid>
 </Window>

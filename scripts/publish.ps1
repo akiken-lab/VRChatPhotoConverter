@@ -17,4 +17,4 @@ if (-not (Test-Path $dotnet)) {
     -o .\publish\win-x64
 
 Write-Host "Publish completed: .\publish\win-x64"
-Write-Host "Inno Setup Compiler で installer\SteamPhotoAutoConverter.iss をビルドしてください。"
+Write-Host "Inno Setup Compiler で installer\GamePhotoAutoConverter.iss をビルドしてください。"

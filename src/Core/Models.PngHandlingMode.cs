@@ -3,5 +3,6 @@
 public enum PngHandlingMode
 {
     Move = 0,
-    Copy = 1
+    Copy = 1,
+    Delete = 2
 }

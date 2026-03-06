@@ -1,4 +1,4 @@
-# 仕様書 v1.3（2画面 + プロファイル対応）
+﻿# 仕様書 v1.3（2画面 + プロファイル対応）
 
 ## 1. 概要
 - PNGをJPEGへ変換し、PNGを `Move` / `Copy` で保管する。
@@ -76,9 +76,10 @@
 
 ## 7. ログ
 - レベル: `Error` / `Warning` / `Information` / `Debug`
-- 保存先: `%LOCALAPPDATA%\SteamPhotoAutoConverter\logs\app-*.log`
+- 保存先: `%LOCALAPPDATA%\GamePhotoAutoConverter\logs\app-*.log`
 
 ## 8. 履歴DB
-- `%LOCALAPPDATA%\SteamPhotoAutoConverter\processing-history.db`
+- `%LOCALAPPDATA%\GamePhotoAutoConverter\processing-history.db`
 - テーブル: `processed_files`
 - 設定画面からリセット要求可能（保存時に実行）
+

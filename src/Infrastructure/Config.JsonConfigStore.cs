@@ -15,9 +15,6 @@ public sealed class JsonConfigStore : IConfigStore
     private readonly string _baseDir;
     private readonly string _configPath;
     private readonly string _logsDir;
-    private readonly string _legacyBaseDir;
-    private readonly string _legacyConfigPath;
-    private readonly string _legacyLogsDir;
 
     public JsonConfigStore()
     {
@@ -25,9 +22,6 @@ public sealed class JsonConfigStore : IConfigStore
         _baseDir = Path.Combine(local, "GamePhotoAutoConverter");
         _configPath = Path.Combine(_baseDir, "settings.json");
         _logsDir = Path.Combine(_baseDir, "logs");
-        _legacyBaseDir = Path.Combine(local, "SteamPhotoAutoConverter");
-        _legacyConfigPath = Path.Combine(_legacyBaseDir, "settings.json");
-        _legacyLogsDir = Path.Combine(_legacyBaseDir, "logs");
     }
 
     public string GetDataDirectory() => _baseDir;
@@ -58,40 +52,11 @@ public sealed class JsonConfigStore : IConfigStore
 
     private void MigrateLegacyIfNeeded()
     {
+        // Legacy migration kept as a no-op after product naming unification.
         if (File.Exists(_configPath))
         {
             return;
         }
-
-        if (File.Exists(_legacyConfigPath))
-        {
-            Directory.CreateDirectory(_baseDir);
-            File.Copy(_legacyConfigPath, _configPath, overwrite: false);
-        }
-
-        if (!Directory.Exists(_legacyLogsDir) || Directory.Exists(_logsDir))
-        {
-            return;
-        }
-
-        Directory.CreateDirectory(_baseDir);
-        CopyDirectory(_legacyLogsDir, _logsDir);
     }
 
-    private static void CopyDirectory(string sourceDir, string destinationDir)
-    {
-        Directory.CreateDirectory(destinationDir);
-
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var targetFile = Path.Combine(destinationDir, Path.GetFileName(file));
-            File.Copy(file, targetFile, overwrite: false);
-        }
-
-        foreach (var dir in Directory.GetDirectories(sourceDir))
-        {
-            var targetSubDir = Path.Combine(destinationDir, Path.GetFileName(dir));
-            CopyDirectory(dir, targetSubDir);
-        }
-    }
 }

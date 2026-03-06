@@ -1,4 +1,4 @@
-using Core.Models;
+﻿using Core.Models;
 
 namespace Core;
 
@@ -26,17 +26,17 @@ public static class AppConfigValidator
 
         if (string.IsNullOrWhiteSpace(profile.SourceDir) || !Directory.Exists(profile.SourceDir))
         {
-            errors.Add(new ValidationError { Code = "E1001", Message = "入力元フォルダが未指定、または存在しません。" });
+            errors.Add(new ValidationError { Code = "E1001", Message = "入力フォルダが未設定、または存在しません。" });
         }
 
         if (string.IsNullOrWhiteSpace(profile.JpegOutputDir))
         {
-            errors.Add(new ValidationError { Code = "E1002", Message = "JPEG保管先フォルダを指定してください。" });
+            errors.Add(new ValidationError { Code = "E1002", Message = "JPEG出力フォルダを指定してください。" });
         }
 
-        if (string.IsNullOrWhiteSpace(profile.PngArchiveDir))
+        if (profile.PngHandlingMode != PngHandlingMode.Delete && string.IsNullOrWhiteSpace(profile.PngArchiveDir))
         {
-            errors.Add(new ValidationError { Code = "E1003", Message = "PNG保存先フォルダを指定してください。" });
+            errors.Add(new ValidationError { Code = "E1003", Message = "PNG保管フォルダを指定してください。" });
         }
 
         if (!string.IsNullOrWhiteSpace(profile.SourceDir) &&
@@ -46,15 +46,20 @@ public static class AppConfigValidator
             var jpg = NormalizePath(profile.JpegOutputDir);
             var png = NormalizePath(profile.PngArchiveDir);
 
-            if (!string.IsNullOrEmpty(src) && (src.Equals(jpg, StringComparison.OrdinalIgnoreCase) || src.Equals(png, StringComparison.OrdinalIgnoreCase)))
+            var sourceEqualsJpeg = !string.IsNullOrEmpty(src) && src.Equals(jpg, StringComparison.OrdinalIgnoreCase);
+            var sourceEqualsPng = profile.PngHandlingMode != PngHandlingMode.Delete &&
+                                  !string.IsNullOrEmpty(src) &&
+                                  src.Equals(png, StringComparison.OrdinalIgnoreCase);
+
+            if (sourceEqualsJpeg || sourceEqualsPng)
             {
-                errors.Add(new ValidationError { Code = "E1004", Message = "入力元と出力先のパスを同一にできません。" });
+                errors.Add(new ValidationError { Code = "E1004", Message = "入力フォルダと出力先を同一にできません。" });
             }
         }
 
         if (profile.JpegQuality is < 1 or > 100)
         {
-            errors.Add(new ValidationError { Code = "E1005", Message = "JPEG品質は1-100で指定してください。" });
+            errors.Add(new ValidationError { Code = "E1005", Message = "JPEG品質は1〜100で指定してください。" });
         }
 
         return errors;
@@ -72,7 +77,7 @@ public static class AppConfigValidator
         {
             if (string.IsNullOrWhiteSpace(target.ExeName))
             {
-                errors.Add(new ValidationError { Code = "E1006", Message = "監視対象のexe名が未指定です。" });
+                errors.Add(new ValidationError { Code = "E1006", Message = "監視対象のexe名が未設定です。" });
                 continue;
             }
 
@@ -83,12 +88,12 @@ public static class AppConfigValidator
 
             if (!string.IsNullOrWhiteSpace(target.ProfileId) && !profileIds.Contains(target.ProfileId))
             {
-                errors.Add(new ValidationError { Code = "E1007", Message = $"監視対象に紐づくプロファイルが存在しません: {target.ExeName}" });
+                errors.Add(new ValidationError { Code = "E1007", Message = $"監視対象に紐づくルールが存在しません: {target.ExeName}" });
             }
 
             if (string.IsNullOrWhiteSpace(target.ProfileId) && string.IsNullOrWhiteSpace(defaultProfileId))
             {
-                errors.Add(new ValidationError { Code = "E1008", Message = $"既定プロファイル未設定のため、監視対象の実行先が解決できません: {target.ExeName}" });
+                errors.Add(new ValidationError { Code = "E1008", Message = $"既定ルールが未設定のため監視設定が解決できません: {target.ExeName}" });
             }
         }
 

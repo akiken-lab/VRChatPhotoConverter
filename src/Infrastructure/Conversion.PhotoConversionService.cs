@@ -119,7 +119,10 @@ public sealed class PhotoConversionService : IPhotoConversionService
                     if (!config.DryRun)
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(targetJpegPath)!);
-                        Directory.CreateDirectory(Path.GetDirectoryName(targetArchivePath)!);
+                        if (config.PngHandlingMode != PngHandlingMode.Delete)
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(targetArchivePath)!);
+                        }
 
                         using var image = await Image.LoadAsync(sourcePath, cancellationToken);
                         var encoder = new JpegEncoder { Quality = config.JpegQuality };
@@ -135,6 +138,11 @@ public sealed class PhotoConversionService : IPhotoConversionService
 
                             File.Move(sourcePath, targetArchivePath);
                             _log.Debug($"png_moved source={sourcePath} archive={targetArchivePath}");
+                        }
+                        else if (config.PngHandlingMode == PngHandlingMode.Delete)
+                        {
+                            File.Delete(sourcePath);
+                            _log.Debug($"png_deleted source={sourcePath}");
                         }
                         else
                         {
@@ -219,3 +227,4 @@ public sealed class PhotoConversionService : IPhotoConversionService
         }
     }
 }
+

@@ -17,6 +17,7 @@ public sealed class LogService : ILogService
             .WriteTo.File(
                 Path.Combine(logDirectory, "app-.log"),
                 rollingInterval: RollingInterval.Day,
+                shared: true,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
     }
