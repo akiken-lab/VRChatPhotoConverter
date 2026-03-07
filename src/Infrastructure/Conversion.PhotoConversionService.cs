@@ -2,8 +2,7 @@
 using Core;
 using Core.Abstractions;
 using Core.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
+using System.Windows.Media.Imaging;
 
 namespace Infrastructure.Conversion;
 
@@ -44,12 +43,13 @@ public sealed class PhotoConversionService : IPhotoConversionService
                 throw new InvalidOperationException($"{validationErrors[0].Code} {validationErrors[0].Message}");
             }
             Directory.CreateDirectory(config.JpegOutputDir);
-            Directory.CreateDirectory(config.PngArchiveDir);
 
             var option = config.IncludeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             var files = Directory.EnumerateFiles(config.SourceDir, "*.png", option).ToList();
+            const DuplicatePolicy effectiveDuplicatePolicy = DuplicatePolicy.Overwrite;
+            var pngAction = config.PngHandlingMode == PngHandlingMode.Delete ? PngHandlingMode.Delete : PngHandlingMode.Keep;
             _log.Info(
-                $"run_start trigger={triggerSource} source={config.SourceDir} jpeg_out={config.JpegOutputDir} png_archive={config.PngArchiveDir} dryrun={config.DryRun} quality={config.JpegQuality} recursive={config.IncludeSubdirectories} duplicate={config.DuplicatePolicy} png_mode={config.PngHandlingMode}");
+                $"run_start trigger={triggerSource} source={config.SourceDir} jpeg_out={config.JpegOutputDir} dryrun={config.DryRun} quality={config.JpegQuality} recursive={config.IncludeSubdirectories} duplicate={effectiveDuplicatePolicy} png_mode={pngAction}");
             var total = files.Count;
             var processed = 0;
             _log.Info($"run_scan_result trigger={triggerSource} png_files={total}");
@@ -99,16 +99,15 @@ public sealed class PhotoConversionService : IPhotoConversionService
 
                     var relativePath = Path.GetRelativePath(config.SourceDir, sourcePath);
                     var targetJpegPath = BuildJpegPath(config.JpegOutputDir, relativePath);
-                    var targetArchivePath = Path.Combine(config.PngArchiveDir, relativePath);
-                    _log.Debug($"file_paths source={sourcePath} jpeg_target={targetJpegPath} archive_target={targetArchivePath}");
+                    _log.Debug($"file_paths source={sourcePath} jpeg_target={targetJpegPath}");
 
                     var originalJpegPath = targetJpegPath;
-                    targetJpegPath = ResolveDuplicate(targetJpegPath, config.DuplicatePolicy, out var skipJpeg);
+                    targetJpegPath = ResolveDuplicate(targetJpegPath, effectiveDuplicatePolicy, out var skipJpeg);
                     if (skipJpeg)
                     {
                         summary.SkippedCount++;
                         skipDuplicateCount++;
-                        _log.Debug($"skip_duplicate file={sourcePath} duplicate_policy={config.DuplicatePolicy}");
+                        _log.Debug($"skip_duplicate file={sourcePath} duplicate_policy={effectiveDuplicatePolicy}");
                         continue;
                     }
                     if (!string.Equals(originalJpegPath, targetJpegPath, StringComparison.OrdinalIgnoreCase))
@@ -119,35 +118,18 @@ public sealed class PhotoConversionService : IPhotoConversionService
                     if (!config.DryRun)
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(targetJpegPath)!);
-                        if (config.PngHandlingMode != PngHandlingMode.Delete)
-                        {
-                            Directory.CreateDirectory(Path.GetDirectoryName(targetArchivePath)!);
-                        }
 
-                        using var image = await Image.LoadAsync(sourcePath, cancellationToken);
-                        var encoder = new JpegEncoder { Quality = config.JpegQuality };
-                        await image.SaveAsJpegAsync(targetJpegPath, encoder, cancellationToken);
+                        ConvertPngToJpeg(sourcePath, targetJpegPath, config.JpegQuality, cancellationToken);
                         _log.Debug($"jpeg_saved source={sourcePath} target={targetJpegPath}");
 
-                        if (config.PngHandlingMode == PngHandlingMode.Move)
-                        {
-                            if (File.Exists(targetArchivePath))
-                            {
-                                File.Delete(targetArchivePath);
-                            }
-
-                            File.Move(sourcePath, targetArchivePath);
-                            _log.Debug($"png_moved source={sourcePath} archive={targetArchivePath}");
-                        }
-                        else if (config.PngHandlingMode == PngHandlingMode.Delete)
+                        if (pngAction == PngHandlingMode.Delete)
                         {
                             File.Delete(sourcePath);
                             _log.Debug($"png_deleted source={sourcePath}");
                         }
                         else
                         {
-                            File.Copy(sourcePath, targetArchivePath, true);
-                            _log.Debug($"png_copied source={sourcePath} archive={targetArchivePath}");
+                            _log.Debug($"png_kept source={sourcePath}");
                         }
                     }
                     else
@@ -225,6 +207,23 @@ public sealed class PhotoConversionService : IPhotoConversionService
 
                 return candidate;
         }
+    }
+
+    private static void ConvertPngToJpeg(string sourcePath, string targetJpegPath, int quality, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var decoder = new PngBitmapDecoder(sourceStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        var frame = decoder.Frames[0];
+
+        using var outputStream = new FileStream(targetJpegPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        var encoder = new JpegBitmapEncoder
+        {
+            QualityLevel = Math.Clamp(quality, 1, 100)
+        };
+        encoder.Frames.Add(frame);
+        encoder.Save(outputStream);
     }
 }
 

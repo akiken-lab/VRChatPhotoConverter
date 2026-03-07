@@ -23,7 +23,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="180"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -44,14 +44,9 @@
                                 <TextBox x:Name="JpegOutputDirTextBox" Grid.Row="2" Grid.Column="1" Margin="0,6,8,0" TextChanged="TextInputChanged"/>
                                 <Button Grid.Row="2" Grid.Column="2" Content="参照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,6,0,0" Click="BrowseJpegOutputDir_Click"/>
 
-                                <TextBlock x:Name="PngArchiveLabelTextBlock" Grid.Row="3" Grid.Column="0" Margin="0,10,8,0" Text="PNG保管先" VerticalAlignment="Center"/>
-                                <TextBox x:Name="PngArchiveDirTextBox" Grid.Row="3" Grid.Column="1" Margin="0,6,8,0" TextChanged="TextInputChanged"/>
-                                <Button x:Name="BrowsePngArchiveDirButton" Grid.Row="3" Grid.Column="2" Content="参照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,6,0,0" Click="BrowsePngArchiveDir_Click"/>
-
-                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
                                     <CheckBox x:Name="IncludeSubdirectoriesCheckBox" Content="サブフォルダを含める" Margin="0,0,20,0" Checked="ToggleInputChanged" Unchecked="ToggleInputChanged"/>
                                     <CheckBox x:Name="MonitorOnStartupCheckBox" Content="起動時に監視を開始" Margin="0,0,20,0" Checked="ToggleInputChanged" Unchecked="ToggleInputChanged"/>
-                                    <CheckBox x:Name="CreateMissingFoldersCheckBox" Content="保存時に出力先を作成" IsChecked="True" Checked="ToggleInputChanged" Unchecked="ToggleInputChanged"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -80,8 +75,7 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,10,8,0" Text="PNG扱い" VerticalAlignment="Center"/>
                                 <ComboBox x:Name="PngModeComboBox" Grid.Row="0" Grid.Column="1" Margin="0,6,0,0" SelectionChanged="SelectionInputChanged">
-                                    <ComboBoxItem Content="移動（Move）"/>
-                                    <ComboBoxItem Content="コピー（Copy）"/>
+                                    <ComboBoxItem Content="保持（Keep）"/>
                                     <ComboBoxItem Content="削除（Delete）"/>
                                 </ComboBox>
                             </Grid>
@@ -106,15 +100,16 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,10,8,0" Text="重複時" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="DuplicatePolicyComboBox" Grid.Row="0" Grid.Column="1" Margin="0,6,0,0" SelectionChanged="SelectionInputChanged">
-                                    <ComboBoxItem Content="連番リネーム（Rename）"/>
-                                    <ComboBoxItem Content="上書き（Overwrite）"/>
-                                    <ComboBoxItem Content="スキップ（Skip）"/>
-                                </ComboBox>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,6,0,0">
+                                    <TextBlock Text="上書き（Overwrite）固定" FontWeight="SemiBold"/>
+                                    <TextBlock Text="同名JPEGが存在する場合は自動で上書きします。選択はできません。"
+                                               Foreground="#5B6474"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,8,0" Text="除外秒数（0-600）" VerticalAlignment="Center"/>
                                 <TextBox x:Name="RecentGuardTextBox" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" TextChanged="TextInputChanged"/>

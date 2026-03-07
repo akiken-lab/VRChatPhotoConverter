@@ -19,7 +19,7 @@ public sealed class JsonConfigStore : IConfigStore
     public JsonConfigStore()
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _baseDir = Path.Combine(local, "GamePhotoAutoConverter");
+        _baseDir = Path.Combine(local, "VRCJpegAutoGenerator");
         _configPath = Path.Combine(_baseDir, "settings.json");
         _logsDir = Path.Combine(_baseDir, "logs");
     }
@@ -29,7 +29,6 @@ public sealed class JsonConfigStore : IConfigStore
 
     public async Task<AppConfig> LoadAsync(CancellationToken cancellationToken = default)
     {
-        MigrateLegacyIfNeeded();
         Directory.CreateDirectory(_baseDir);
         Directory.CreateDirectory(_logsDir);
 
@@ -49,14 +48,4 @@ public sealed class JsonConfigStore : IConfigStore
         await using var stream = File.Create(_configPath);
         await JsonSerializer.SerializeAsync(stream, config, Options, cancellationToken);
     }
-
-    private void MigrateLegacyIfNeeded()
-    {
-        // Legacy migration kept as a no-op after product naming unification.
-        if (File.Exists(_configPath))
-        {
-            return;
-        }
-    }
-
 }

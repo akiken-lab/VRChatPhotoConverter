@@ -1,15 +1,14 @@
-﻿namespace Core.Models;
+namespace Core.Models;
 
 public sealed class AppConfig
 {
-    // Legacy keys kept for backward compatibility and migration.
     public string SourceDir { get; set; } = string.Empty;
     public string JpegOutputDir { get; set; } = string.Empty;
     public string PngArchiveDir { get; set; } = string.Empty;
-    public PngHandlingMode PngHandlingMode { get; set; } = PngHandlingMode.Move;
+    public PngHandlingMode PngHandlingMode { get; set; } = PngHandlingMode.Keep;
     public int JpegQuality { get; set; } = 90;
     public bool IncludeSubdirectories { get; set; } = true;
-    public DuplicatePolicy DuplicatePolicy { get; set; } = DuplicatePolicy.Rename;
+    public DuplicatePolicy DuplicatePolicy { get; set; } = DuplicatePolicy.Overwrite;
     public bool DryRun { get; set; }
     public AppLogLevel LogLevel { get; set; } = AppLogLevel.Information;
     public bool LaunchOnWindowsStartup { get; set; }
@@ -19,3 +18,4 @@ public sealed class AppConfig
     public List<ConversionProfile> Profiles { get; set; } = new();
     public List<WatchTarget> WatchTargets { get; set; } = new();
 }
+

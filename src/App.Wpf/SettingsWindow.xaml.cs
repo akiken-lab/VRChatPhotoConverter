@@ -100,6 +100,12 @@ public partial class SettingsWindow : Window
             config.LaunchOnWindowsStartup = true;
         }
 
+        foreach (var profile in config.Profiles)
+        {
+            profile.PngHandlingMode = profile.PngHandlingMode == PngHandlingMode.Delete ? PngHandlingMode.Delete : PngHandlingMode.Keep;
+            profile.PngArchiveDir = string.Empty;
+        }
+
         config.DefaultProfileId ??= config.Profiles[0].Id;
     }
 
@@ -118,7 +124,6 @@ public partial class SettingsWindow : Window
             RuleNameTextBox.Text = rule.Name;
             SourceDirTextBox.Text = rule.SourceDir;
             JpegOutputDirTextBox.Text = rule.JpegOutputDir;
-            PngArchiveDirTextBox.Text = rule.PngArchiveDir;
             IncludeSubdirectoriesCheckBox.IsChecked = rule.IncludeSubdirectories;
             MonitorOnStartupCheckBox.IsChecked = _draft.MonitorEnabledOnStartup;
             JpegQualitySlider.Value = Math.Clamp(rule.JpegQuality, 1, 100);
@@ -126,15 +131,7 @@ public partial class SettingsWindow : Window
 
             PngModeComboBox.SelectedIndex = rule.PngHandlingMode switch
             {
-                PngHandlingMode.Copy => 1,
-                PngHandlingMode.Delete => 2,
-                _ => 0
-            };
-            UpdatePngArchiveEnabledState();
-            DuplicatePolicyComboBox.SelectedIndex = rule.DuplicatePolicy switch
-            {
-                DuplicatePolicy.Overwrite => 1,
-                DuplicatePolicy.Skip => 2,
+                PngHandlingMode.Delete => 1,
                 _ => 0
             };
             RecentGuardTextBox.Text = rule.RecentFileGuardSeconds.ToString();
@@ -175,11 +172,6 @@ public partial class SettingsWindow : Window
 
     private void SelectionInputChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (ReferenceEquals(sender, PngModeComboBox))
-        {
-            UpdatePngArchiveEnabledState();
-        }
-
         InputChangedCore();
     }
 
@@ -228,11 +220,7 @@ public partial class SettingsWindow : Window
 
         var source = SourceDirTextBox?.Text?.Trim() ?? string.Empty;
         var jpegOut = JpegOutputDirTextBox?.Text?.Trim() ?? string.Empty;
-        var pngArchive = PngArchiveDirTextBox?.Text?.Trim() ?? string.Empty;
         var exeName = WatchExeNameTextBox?.Text?.Trim() ?? string.Empty;
-        var pngMode = PngModeComboBox?.SelectedIndex ?? 0;
-        var isPngDeleteMode = pngMode == 2;
-
         if (string.IsNullOrWhiteSpace(RuleNameTextBox?.Text))
         {
             errors.Add("・ルール名を入力してください。");
@@ -252,11 +240,6 @@ public partial class SettingsWindow : Window
             errors.Add("・JPEG出力先を指定してください。");
         }
 
-        if (!isPngDeleteMode && string.IsNullOrWhiteSpace(pngArchive))
-        {
-            errors.Add("・PNG保管先を指定してください。");
-        }
-
         if (string.IsNullOrWhiteSpace(exeName))
         {
             errors.Add("・監視対象EXEを指定してください。");
@@ -272,22 +255,6 @@ public partial class SettingsWindow : Window
             if (IsSameOrNested(source, jpegOut) || IsSameOrNested(jpegOut, source))
             {
                 errors.Add("・入力フォルダとJPEG出力先を同一または内包関係にできません。");
-            }
-        }
-
-        if (!isPngDeleteMode && !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(pngArchive))
-        {
-            if (IsSameOrNested(source, pngArchive) || IsSameOrNested(pngArchive, source))
-            {
-                errors.Add("・入力フォルダとPNG保管先を同一または内包関係にできません。");
-            }
-        }
-
-        if (!isPngDeleteMode && !string.IsNullOrWhiteSpace(jpegOut) && !string.IsNullOrWhiteSpace(pngArchive))
-        {
-            if (IsSameOrNested(jpegOut, pngArchive) || IsSameOrNested(pngArchive, jpegOut))
-            {
-                errors.Add("・JPEG出力先とPNG保管先を同一または内包関係にできません。");
             }
         }
 
@@ -329,21 +296,15 @@ public partial class SettingsWindow : Window
         rule.Name = RuleNameTextBox.Text.Trim();
         rule.SourceDir = SourceDirTextBox.Text.Trim();
         rule.JpegOutputDir = JpegOutputDirTextBox.Text.Trim();
-        rule.PngArchiveDir = PngArchiveDirTextBox.Text.Trim();
+        rule.PngArchiveDir = string.Empty;
         rule.IncludeSubdirectories = IncludeSubdirectoriesCheckBox.IsChecked == true;
         rule.JpegQuality = (int)JpegQualitySlider.Value;
         rule.PngHandlingMode = PngModeComboBox.SelectedIndex switch
         {
-            1 => PngHandlingMode.Copy,
-            2 => PngHandlingMode.Delete,
-            _ => PngHandlingMode.Move
+            1 => PngHandlingMode.Delete,
+            _ => PngHandlingMode.Keep
         };
-        rule.DuplicatePolicy = DuplicatePolicyComboBox.SelectedIndex switch
-        {
-            1 => DuplicatePolicy.Overwrite,
-            2 => DuplicatePolicy.Skip,
-            _ => DuplicatePolicy.Rename
-        };
+        rule.DuplicatePolicy = DuplicatePolicy.Overwrite;
         rule.RecentFileGuardSeconds = int.Parse(RecentGuardTextBox.Text.Trim());
         rule.DryRun = DryRunCheckBox.IsChecked == true;
 
@@ -381,33 +342,9 @@ public partial class SettingsWindow : Window
             watch.ProfileName = rule.Name;
         }
 
-        if (CreateMissingFoldersCheckBox.IsChecked == true)
-        {
-            Directory.CreateDirectory(rule.JpegOutputDir);
-            if (rule.PngHandlingMode != PngHandlingMode.Delete)
-            {
-                Directory.CreateDirectory(rule.PngArchiveDir);
-            }
-        }
+        Directory.CreateDirectory(rule.JpegOutputDir);
 
         return true;
-    }
-
-    private void UpdatePngArchiveEnabledState()
-    {
-        var enabled = (PngModeComboBox?.SelectedIndex ?? 0) != 2;
-        if (PngArchiveDirTextBox is not null)
-        {
-            PngArchiveDirTextBox.IsEnabled = enabled;
-        }
-        if (BrowsePngArchiveDirButton is not null)
-        {
-            BrowsePngArchiveDirButton.IsEnabled = enabled;
-        }
-        if (PngArchiveLabelTextBlock is not null)
-        {
-            PngArchiveLabelTextBlock.Opacity = enabled ? 1.0 : 0.6;
-        }
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -539,15 +476,6 @@ public partial class SettingsWindow : Window
         if (!string.IsNullOrWhiteSpace(path))
         {
             JpegOutputDirTextBox.Text = path;
-        }
-    }
-
-    private void BrowsePngArchiveDir_Click(object sender, RoutedEventArgs e)
-    {
-        var path = BrowseFolder(PngArchiveDirTextBox.Text);
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            PngArchiveDirTextBox.Text = path;
         }
     }
 

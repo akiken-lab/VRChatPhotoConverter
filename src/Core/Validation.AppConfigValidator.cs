@@ -34,24 +34,14 @@ public static class AppConfigValidator
             errors.Add(new ValidationError { Code = "E1002", Message = "JPEG出力フォルダを指定してください。" });
         }
 
-        if (profile.PngHandlingMode != PngHandlingMode.Delete && string.IsNullOrWhiteSpace(profile.PngArchiveDir))
-        {
-            errors.Add(new ValidationError { Code = "E1003", Message = "PNG保管フォルダを指定してください。" });
-        }
-
         if (!string.IsNullOrWhiteSpace(profile.SourceDir) &&
-            (!string.IsNullOrWhiteSpace(profile.JpegOutputDir) || !string.IsNullOrWhiteSpace(profile.PngArchiveDir)))
+            !string.IsNullOrWhiteSpace(profile.JpegOutputDir))
         {
             var src = NormalizePath(profile.SourceDir);
             var jpg = NormalizePath(profile.JpegOutputDir);
-            var png = NormalizePath(profile.PngArchiveDir);
 
             var sourceEqualsJpeg = !string.IsNullOrEmpty(src) && src.Equals(jpg, StringComparison.OrdinalIgnoreCase);
-            var sourceEqualsPng = profile.PngHandlingMode != PngHandlingMode.Delete &&
-                                  !string.IsNullOrEmpty(src) &&
-                                  src.Equals(png, StringComparison.OrdinalIgnoreCase);
-
-            if (sourceEqualsJpeg || sourceEqualsPng)
+            if (sourceEqualsJpeg)
             {
                 errors.Add(new ValidationError { Code = "E1004", Message = "入力フォルダと出力先を同一にできません。" });
             }

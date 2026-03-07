@@ -23,7 +23,7 @@ internal static class UiDiagnostics
         {
             var logDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "GamePhotoAutoConverter",
+                "VRCJpegAutoGenerator",
                 "logs");
 
             Directory.CreateDirectory(logDir);

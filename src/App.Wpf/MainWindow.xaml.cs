@@ -72,6 +72,10 @@ public partial class MainWindow : Window
             {
                 _config = Normalize(wizard.CreatedConfig);
                 _config.MonitorEnabledOnStartup = wizard.StartMonitoringAfterFinish;
+                if (!wizard.ConvertExistingFilesOnFirstSetup)
+                {
+                    await MarkExistingFilesAsProcessedAsync(_config);
+                }
                 await _configStore.SaveAsync(_config);
             }
         }
@@ -134,10 +138,10 @@ public partial class MainWindow : Window
                 SourceDir = config.SourceDir,
                 JpegOutputDir = config.JpegOutputDir,
                 PngArchiveDir = config.PngArchiveDir,
-                PngHandlingMode = config.PngHandlingMode,
+                PngHandlingMode = config.PngHandlingMode == PngHandlingMode.Delete ? PngHandlingMode.Delete : PngHandlingMode.Keep,
                 JpegQuality = config.JpegQuality,
                 IncludeSubdirectories = config.IncludeSubdirectories,
-                DuplicatePolicy = config.DuplicatePolicy,
+                DuplicatePolicy = DuplicatePolicy.Overwrite,
                 DryRun = config.DryRun,
                 RecentFileGuardSeconds = config.RecentFileGuardSeconds
             });
@@ -146,6 +150,12 @@ public partial class MainWindow : Window
 
         if (config.Profiles.Count > 0)
         {
+            foreach (var profile in config.Profiles)
+            {
+                profile.PngHandlingMode = profile.PngHandlingMode == PngHandlingMode.Delete ? PngHandlingMode.Delete : PngHandlingMode.Keep;
+                profile.PngArchiveDir = string.Empty;
+                profile.DuplicatePolicy = DuplicatePolicy.Overwrite;
+            }
             config.DefaultProfileId ??= config.Profiles[0].Id;
             foreach (var target in config.WatchTargets)
             {
@@ -214,6 +224,47 @@ public partial class MainWindow : Window
         }
 
         _ = SaveMonitorStateAsync();
+    }
+
+    private async Task MarkExistingFilesAsProcessedAsync(AppConfig config)
+    {
+        var markedCount = 0;
+        foreach (var profile in config.Profiles)
+        {
+            if (string.IsNullOrWhiteSpace(profile.SourceDir) || !Directory.Exists(profile.SourceDir))
+            {
+                continue;
+            }
+
+            var option = profile.IncludeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(profile.SourceDir, "*.png", option);
+            }
+            catch (Exception ex)
+            {
+                UiDiagnostics.LogException("SeedHistory_Enumerate", ex);
+                continue;
+            }
+
+            foreach (var sourcePath in files)
+            {
+                try
+                {
+                    var lastWriteUtc = File.GetLastWriteTimeUtc(sourcePath);
+                    var size = new FileInfo(sourcePath).Length;
+                    await _historyStore.MarkProcessedAsync(sourcePath, lastWriteUtc, size);
+                    markedCount++;
+                }
+                catch (Exception ex)
+                {
+                    UiDiagnostics.LogException("SeedHistory_MarkProcessed", ex);
+                }
+            }
+        }
+
+        UiDiagnostics.LogMessage("SeedHistory", $"marked_existing_png={markedCount}");
     }
 
     private void MonitorToggleButton_Checked(object sender, RoutedEventArgs e)
@@ -342,11 +393,11 @@ public partial class MainWindow : Window
         {
             SourceDir = rule.SourceDir,
             JpegOutputDir = rule.JpegOutputDir,
-            PngArchiveDir = rule.PngArchiveDir,
+            PngArchiveDir = string.Empty,
             PngHandlingMode = rule.PngHandlingMode,
             JpegQuality = rule.JpegQuality,
             IncludeSubdirectories = rule.IncludeSubdirectories,
-            DuplicatePolicy = rule.DuplicatePolicy,
+            DuplicatePolicy = DuplicatePolicy.Overwrite,
             DryRun = rule.DryRun,
             RecentFileGuardSeconds = rule.RecentFileGuardSeconds,
             LogLevel = _config.LogLevel
@@ -393,7 +444,8 @@ public partial class MainWindow : Window
         _suppressToggleHandler = false;
 
         StatusBadgeTextBlock.Text = isRunning ? "監視中" : "停止中";
-        StatusBadge.Background = new Media.SolidColorBrush((Media.Color)Media.ColorConverter.ConvertFromString(isRunning ? "#D1FADF" : "#F2F4F7"));
+        StatusBadge.Background = new Media.SolidColorBrush((Media.Color)Media.ColorConverter.ConvertFromString(isRunning ? "#D1FADF" : "#FEE2E2"));
+        StatusBadgeTextBlock.Foreground = new Media.SolidColorBrush((Media.Color)Media.ColorConverter.ConvertFromString(isRunning ? "#0E7A43" : "#B42318"));
         StatusSummaryTextBlock.Text = isRunning ? "ゲーム終了を監視しています。" : "監視は停止しています。";
 
         _trayMonitorItem.Checked = isRunning;
@@ -532,7 +584,7 @@ public partial class MainWindow : Window
 
     private void ApplyStartup(bool enabled)
     {
-        var startupPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "GamePhotoAutoConverter.cmd");
+        var startupPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "VRCJpegAutoGenerator.cmd");
         if (!enabled)
         {
             if (File.Exists(startupPath))

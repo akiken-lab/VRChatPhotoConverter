@@ -8,6 +8,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>VRCJpegAutoGenerator</AssemblyName>
+    <Product>VRC JPEG Auto Generator</Product>
+    <AssemblyTitle>VRC JPEG Auto Generator</AssemblyTitle>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>

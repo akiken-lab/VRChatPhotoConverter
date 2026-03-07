@@ -1,40 +1,51 @@
-# VRChatPhotoConverter
-# Summary
+﻿# VRC JPEG Auto Generator
 
-VRChatで撮影した写真をjpeg に変換するPowerShellスクリプトです。  
-友人に送付したりするときに容量が大きすぎて扱いづらいため  
-送付用や確認用にファイルサイズが小さいJpeg を生成することを目的としています。  
+Windows desktop app to convert game screenshots from PNG to JPEG with tray-resident monitoring.
 
-元ファイルのPngファイルはバックアップフォルダに保存し、指定した保存先フォルダにjpegファイルを書き出します。  
-また、VRChatの仕様でカメラのExif 情報で撮影日時の記載がないため、ファイルが生成された時間を撮影日時としてExif に書き込みも行っています。  
-Google Photoや Amazo Photo に読み込んだ際にExifの撮影日時情報がないと、  
-アプリ内写真の時系列が時差の分だけずれるためこの処理も追加しています。  
-★注意！月ごとにフォルダを分ける機能は未実装なのでご注意ください。
+## Current behavior
+- PNG -> JPEG conversion
+- PNG post action:
+  - `Keep` (do nothing)
+  - `Delete` (delete source PNG after successful JPEG save)
+- Duplicate JPEG handling is fixed to `Overwrite`
+- DryRun is supported (history is not saved in DryRun)
+- Game-exit trigger monitoring (tray resident)
 
-# Installation  
-★注意！
-フォルダ内の写真をすべて変換と移動をしてしまいますので、
-変換したくない過去の写真はあらかじめVRChatの写真フォルダから退避してご利用ください。
+## Runtime data location
+Application data is stored here (portable distribution does not change this):
 
-ps1 ファイル内の設定欄にあるフォルダパス設定をご自身の環境に合わせて設定してください。  
-また、保存先パスとバックアップ先パスのフォルダはあらかじめエクスプローラーで作成ください。  
+`%LOCALAPPDATA%\VRCJpegAutoGenerator`
 
-編集したps1ファイルをローカルのいずれかのフォルダに配置し、  
-Windows のタスクスケジューラ機能で自動的に実行するように設定します。  
+Includes:
+- settings
+- processing history (SQLite)
+- logs
 
-タスクには下記のように記載します。  
+## Build and portable package
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Configuration Release
+```
 
-## トリガー  
-タスクの開始：ログオン時  
-設定　　　　：任意のユーザー  
-繰り返し間隔：5分間　継続時間：無制限  
-有効　　　　：☑  
+Artifacts:
+- folder: `publish\win-x64\`
+- zip: `dist\VRCJpegAutoGenerator-portable.zip`
 
-## 操作  
-操作：プログラムの開始  
-プログラム：%Systemroot%\System32\WindowsPowerShell\v1.0\powershell.exe  
-引数の追加：-ExecutionPolicy RemoteSigned C:\{PS1ファイルを置いたパス}\VRC_jpeg.ps1  
+Zip layout:
+- one top-level folder: `VRCJpegAutoGenerator\...`
+- excludes `*.pdb`
+- includes `readme.txt` and `license.txt` from `distribution\`
 
-（引数の追加の例）-ExecutionPolicy RemoteSigned C:\vrc_task\VRC_jpeg.ps1  
+## Repository layout
+- `src/` application source
+- `tests/` test projects
+- `scripts/` build/package scripts
+- `docs/` specs and internal design notes
+  - `docs/spec.md`
+  - `docs/implementation-tasks.md`
+  - `docs/portable-distribution.md`
+- `distribution/` release-facing text assets (`readme.txt`, `license.txt`, `booth_content.txt`)
 
+## Notes
+- No installer is required; distribution is portable zip.
+- App can still run at Windows startup and remain tray-resident.
 

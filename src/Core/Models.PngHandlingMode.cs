@@ -2,7 +2,6 @@
 
 public enum PngHandlingMode
 {
-    Move = 0,
-    Copy = 1,
-    Delete = 2
+    Keep = 0,
+    Delete = 1
 }

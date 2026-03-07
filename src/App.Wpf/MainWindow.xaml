@@ -1,7 +1,7 @@
 ﻿<Window x:Class="PhotoConverterApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Game Photo Auto Converter"
+        Title="VRC JPEG Auto Generator"
         Height="760"
         Width="1120"
         MinHeight="680"
@@ -44,8 +44,8 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="監視状態" FontSize="18" FontWeight="SemiBold"/>
-                            <Border x:Name="StatusBadge" Margin="10,0,0,0" Padding="10,4" CornerRadius="10" Background="#E5E7EB">
-                                <TextBlock x:Name="StatusBadgeTextBlock" Text="停止中" FontWeight="SemiBold"/>
+                            <Border x:Name="StatusBadge" Margin="10,0,0,0" Padding="10,4" CornerRadius="10" Background="#FEE2E2">
+                                <TextBlock x:Name="StatusBadgeTextBlock" Text="停止中" FontWeight="SemiBold" Foreground="#B42318"/>
                             </Border>
                         </StackPanel>
                         <TextBlock x:Name="StatusSummaryTextBlock" Text="監視は停止しています。" Foreground="#5B6474" Margin="0,8,0,0"/>
