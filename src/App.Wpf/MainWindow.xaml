@@ -51,9 +51,11 @@
                         <TextBlock x:Name="StatusSummaryTextBlock" Text="監視は停止しています。" Foreground="#5B6474" Margin="0,8,0,0"/>
 
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                            <ToggleButton x:Name="MonitorToggleButton" Width="118" Height="30" FontSize="11" Checked="MonitorToggleButton_Checked" Unchecked="MonitorToggleButton_Unchecked">
-                                停止中
-                            </ToggleButton>
+                            <ToggleButton x:Name="MonitorToggleButton"
+                                          Style="{StaticResource ToggleSwitchButtonStyle}"
+                                          Content="監視を開始"
+                                          Checked="MonitorToggleButton_Checked"
+                                          Unchecked="MonitorToggleButton_Unchecked"/>
                         </StackPanel>
                     </StackPanel>
 

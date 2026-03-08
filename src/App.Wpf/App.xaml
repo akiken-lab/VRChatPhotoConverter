@@ -35,5 +35,66 @@
             <Setter Property="Foreground" Value="#B42318"/>
             <Setter Property="BorderBrush" Value="#FDA29B"/>
         </Style>
+
+        <Style x:Key="ToggleSwitchButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="SwitchTrack"
+                                    Width="52"
+                                    Height="30"
+                                    CornerRadius="15"
+                                    Background="#D0D5DD"
+                                    BorderBrush="#D0D5DD"
+                                    BorderThickness="1"
+                                    VerticalAlignment="Center">
+                                <Border x:Name="SwitchThumb"
+                                        Width="24"
+                                        Height="24"
+                                        Margin="3,0,0,0"
+                                        Background="White"
+                                        CornerRadius="12"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"/>
+                            </Border>
+
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="10,0,0,0"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True"/>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#1163FF"/>
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#1163FF"/>
+                                <Setter TargetName="SwitchThumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="SwitchThumb" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
+
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Opacity" Value="0.92"/>
+                            </Trigger>
+
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>

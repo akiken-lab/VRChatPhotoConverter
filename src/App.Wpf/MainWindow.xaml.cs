@@ -33,6 +33,9 @@ public partial class MainWindow : Window
     private AppLogLevel _currentLevel = AppLogLevel.Information;
 
     private bool _allowExit;
+    private bool _isMinimizingToTray;
+    private bool _hasShownMinimizeAnnouncement;
+    private bool _hasShownCloseAnnouncement;
     private bool _suppressToggleHandler;
     private int _lastScanned;
     private int _lastConverted;
@@ -92,7 +95,7 @@ public partial class MainWindow : Window
 
         if (_startMinimized)
         {
-            MinimizeToTray();
+            MinimizeToTray("startup");
         }
     }
 
@@ -101,7 +104,7 @@ public partial class MainWindow : Window
         if (!_allowExit)
         {
             e.Cancel = true;
-            MinimizeToTray();
+            MinimizeToTray("close");
             return;
         }
 
@@ -117,9 +120,14 @@ public partial class MainWindow : Window
 
     private void MainWindow_StateChanged(object? sender, EventArgs e)
     {
+        if (_isMinimizingToTray)
+        {
+            return;
+        }
+
         if (WindowState == WindowState.Minimized && IsVisible)
         {
-            MinimizeToTray();
+            MinimizeToTray("minimize");
         }
     }
 
@@ -228,7 +236,14 @@ public partial class MainWindow : Window
 
     private async Task MarkExistingFilesAsProcessedAsync(AppConfig config)
     {
+        var total = CountExistingPngFiles(config);
         var markedCount = 0;
+        if (total > 0)
+        {
+            ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています (0/{total})";
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+        }
+
         foreach (var profile in config.Profiles)
         {
             if (string.IsNullOrWhiteSpace(profile.SourceDir) || !Directory.Exists(profile.SourceDir))
@@ -256,6 +271,11 @@ public partial class MainWindow : Window
                     var size = new FileInfo(sourcePath).Length;
                     await _historyStore.MarkProcessedAsync(sourcePath, lastWriteUtc, size);
                     markedCount++;
+                    if (total > 0 && (markedCount == total || markedCount % 25 == 0))
+                    {
+                        ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています ({markedCount}/{total})";
+                        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -265,6 +285,34 @@ public partial class MainWindow : Window
         }
 
         UiDiagnostics.LogMessage("SeedHistory", $"marked_existing_png={markedCount}");
+        if (total > 0)
+        {
+            ProgressTextBlock.Text = $"初回準備完了: 既存PNG {markedCount}/{total} 枚を処理済み登録しました";
+        }
+    }
+
+    private static int CountExistingPngFiles(AppConfig config)
+    {
+        var total = 0;
+        foreach (var profile in config.Profiles)
+        {
+            if (string.IsNullOrWhiteSpace(profile.SourceDir) || !Directory.Exists(profile.SourceDir))
+            {
+                continue;
+            }
+
+            try
+            {
+                var option = profile.IncludeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                total += Directory.EnumerateFiles(profile.SourceDir, "*.png", option).Count();
+            }
+            catch
+            {
+                // Ignore unreadable paths and fall back to the count gathered so far.
+            }
+        }
+
+        return total;
     }
 
     private void MonitorToggleButton_Checked(object sender, RoutedEventArgs e)
@@ -500,19 +548,14 @@ public partial class MainWindow : Window
 
             if (file is null)
             {
-                LogEmptyStateBorder.Visibility = Visibility.Visible;
-                LogTailTextBox.Visibility = Visibility.Collapsed;
-                LogTailTextBox.Text = string.Empty;
+                ShowEmptyLogState();
                 return;
             }
 
-            var lines = File.ReadLines(file.FullName).Reverse().Take(8).Reverse();
-            var content = string.Join(Environment.NewLine, lines).Trim();
+            var content = ReadLogTailWithRetry(file.FullName, 8);
             if (string.IsNullOrWhiteSpace(content))
             {
-                LogEmptyStateBorder.Visibility = Visibility.Visible;
-                LogTailTextBox.Visibility = Visibility.Collapsed;
-                LogTailTextBox.Text = string.Empty;
+                ShowEmptyLogState();
                 return;
             }
 
@@ -522,10 +565,58 @@ public partial class MainWindow : Window
         }
         catch (IOException)
         {
-            LogEmptyStateBorder.Visibility = Visibility.Visible;
-            LogTailTextBox.Visibility = Visibility.Collapsed;
-            LogTailTextBox.Text = string.Empty;
+            ShowEmptyLogState();
         }
+    }
+
+    private void ShowEmptyLogState()
+    {
+        LogEmptyStateBorder.Visibility = Visibility.Visible;
+        LogTailTextBox.Visibility = Visibility.Collapsed;
+        LogTailTextBox.Text = string.Empty;
+    }
+
+    private static string ReadLogTailWithRetry(string path, int lineCount)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                return ReadLogTail(path, lineCount);
+            }
+            catch (IOException) when (attempt < maxAttempts - 1)
+            {
+                Thread.Sleep(60);
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ReadLogTail(string path, int lineCount)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        var queue = new Queue<string>(lineCount);
+        while (!reader.EndOfStream)
+        {
+            var line = reader.ReadLine();
+            if (line is null)
+            {
+                continue;
+            }
+
+            if (queue.Count == lineCount)
+            {
+                queue.Dequeue();
+            }
+
+            queue.Enqueue(line);
+        }
+
+        return string.Join(Environment.NewLine, queue).Trim();
     }
 
     private async void OpenSettings_Click(object sender, RoutedEventArgs e) => await OpenSettingsInternal();
@@ -655,16 +746,69 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CloseToTray_Click(object sender, RoutedEventArgs e) => MinimizeToTray();
+    private void CloseToTray_Click(object sender, RoutedEventArgs e) => MinimizeToTray("manual");
 
-    private void MinimizeToTray()
+    private void MinimizeToTray(string reason)
     {
-        ShowInTaskbar = false;
-        if (WindowState != WindowState.Minimized)
+        _isMinimizingToTray = true;
+        try
         {
-            WindowState = WindowState.Minimized;
+            ShowInTaskbar = false;
+            if (WindowState != WindowState.Minimized)
+            {
+                WindowState = WindowState.Minimized;
+            }
+            Hide();
         }
-        Hide();
+        finally
+        {
+            _isMinimizingToTray = false;
+        }
+
+        ShowTrayAnnouncement(reason);
+    }
+
+    private void ShowTrayAnnouncement(string reason)
+    {
+        var shouldShow = reason switch
+        {
+            "minimize" when !_hasShownMinimizeAnnouncement => true,
+            "close" when !_hasShownCloseAnnouncement => true,
+            _ => false
+        };
+
+        if (!shouldShow)
+        {
+            return;
+        }
+
+        var title = "VRC JPEG Auto Generator";
+        var text = reason switch
+        {
+            "close" => "ウィンドウは終了せず、タスクトレイに格納されました。終了はトレイメニューから行えます。",
+            _ => "ウィンドウはタスクトレイに格納されました。ダブルクリックで元に戻せます。"
+        };
+
+        try
+        {
+            _trayIcon.BalloonTipTitle = title;
+            _trayIcon.BalloonTipText = text;
+            _trayIcon.BalloonTipIcon = Forms.ToolTipIcon.Info;
+            _trayIcon.ShowBalloonTip(3000);
+        }
+        catch
+        {
+            // Ignore shell notification failures on environments that suppress balloon tips.
+        }
+
+        if (reason == "close")
+        {
+            _hasShownCloseAnnouncement = true;
+        }
+        else if (reason == "minimize")
+        {
+            _hasShownMinimizeAnnouncement = true;
+        }
     }
 
     private void RestoreFromTray()
