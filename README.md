@@ -122,7 +122,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Configuration Re
 
 生成物:
 - `publish\win-x64\`
-- `dist\VRCJpegAutoGenerator-portable.zip`
+- `dist\VRCJpegAutoGenerator-v<version>-portable.zip`
 
 zip の内容:
 - 先頭フォルダは `VRCJpegAutoGenerator\`

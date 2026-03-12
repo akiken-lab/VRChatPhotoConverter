@@ -5,7 +5,7 @@ GitHub Releases と BOOTH の両方で配布する前提で、毎回確認する
 ## 1. ビルド
 1. `powershell -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Configuration Release` を実行する
 2. `publish\win-x64\VRCJpegAutoGenerator.exe` が生成されることを確認する
-3. `dist\VRCJpegAutoGenerator-portable.zip` が生成されることを確認する
+3. `dist\VRCJpegAutoGenerator-v<version>-portable.zip` が生成されることを確認する
 4. zip 内に `readme.txt` と `license.txt` が入っていることを確認する
 5. zip 内に `*.pdb` が含まれていないことを確認する
 
@@ -24,7 +24,7 @@ GitHub Releases と BOOTH の両方で配布する前提で、毎回確認する
    - 変更点
    - 既知の制約
    - 配布形式が Portable zip であること
-3. 添付ファイル名が `VRCJpegAutoGenerator-portable.zip` になっていることを確認する
+3. 添付ファイル名が `VRCJpegAutoGenerator-v<version>-portable.zip` になっていることを確認する
 4. 不具合報告先として GitHub Issues または連絡先を明記する
 
 ## 4. BOOTH 向け確認

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Core;
 using Core.Abstractions;
 using Core.Models;
@@ -8,9 +8,10 @@ namespace Infrastructure.Conversion;
 
 public sealed class PhotoConversionService : IPhotoConversionService
 {
+    private const int MaxStoredErrors = 100;
+    private const int MaxParallelConversions = 4;
     private readonly ILogService _log;
     private readonly IProcessingHistoryStore _historyStore;
-    private readonly ConcurrentDictionary<string, byte> _processedCache = new(StringComparer.OrdinalIgnoreCase);
 
     public PhotoConversionService(ILogService log, IProcessingHistoryStore historyStore)
     {
@@ -34,6 +35,18 @@ public sealed class PhotoConversionService : IPhotoConversionService
         var skipHistoryCount = 0;
         var skipDuplicateCount = 0;
         var dryRunCount = 0;
+        var processedCount = 0;
+        var convertedCount = 0;
+        var skippedCount = 0;
+        var errorCount = 0;
+        var skipRecentGuardCounter = 0;
+        var skipCacheCounter = 0;
+        var skipHistoryCounter = 0;
+        var skipDuplicateCounter = 0;
+        var dryRunCounter = 0;
+        var processedCache = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        var errorsLock = new object();
+        var reporter = new ProgressReporter(progress);
 
         try
         {
@@ -42,74 +55,97 @@ public sealed class PhotoConversionService : IPhotoConversionService
             {
                 throw new InvalidOperationException($"{validationErrors[0].Code} {validationErrors[0].Message}");
             }
+
             Directory.CreateDirectory(config.JpegOutputDir);
 
             var option = config.IncludeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            var files = Directory.EnumerateFiles(config.SourceDir, "*.png", option).ToList();
             const DuplicatePolicy effectiveDuplicatePolicy = DuplicatePolicy.Overwrite;
             var pngAction = config.PngHandlingMode == PngHandlingMode.Delete ? PngHandlingMode.Delete : PngHandlingMode.Keep;
+
             _log.Info(
                 $"run_start trigger={triggerSource} source={config.SourceDir} jpeg_out={config.JpegOutputDir} dryrun={config.DryRun} quality={config.JpegQuality} recursive={config.IncludeSubdirectories} duplicate={effectiveDuplicatePolicy} png_mode={pngAction}");
-            var total = files.Count;
-            var processed = 0;
+
+            reporter.Report(
+                phase: "scan",
+                isIndeterminate: true,
+                totalFiles: 0,
+                scannedFiles: 0,
+                processedFiles: 0,
+                convertedCount: 0,
+                skippedCount: 0,
+                errorCount: 0,
+                currentFile: string.Empty,
+                force: true);
+
+            var total = CountPngFiles(config.SourceDir, option, reporter, cancellationToken);
+
             _log.Info($"run_scan_result trigger={triggerSource} png_files={total}");
 
-            foreach (var sourcePath in files)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                summary.ScannedCount++;
-                processed++;
-                _log.Debug($"file_begin index={processed}/{total} path={sourcePath}");
-                progress?.Report(new ConversionProgress
-                {
-                    TotalFiles = total,
-                    ProcessedFiles = processed,
-                    CurrentFile = sourcePath
-                });
+            reporter.Report(
+                phase: "process",
+                isIndeterminate: total == 0,
+                totalFiles: total,
+                scannedFiles: total,
+                processedFiles: 0,
+                convertedCount: 0,
+                skippedCount: 0,
+                errorCount: 0,
+                currentFile: string.Empty,
+                force: true);
 
+            await Parallel.ForEachAsync(
+                Directory.EnumerateFiles(config.SourceDir, "*.png", option),
+                new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = MaxParallelConversions,
+                    CancellationToken = cancellationToken
+                },
+                async (sourcePath, ct) =>
+            {
                 try
                 {
+                    ct.ThrowIfCancellationRequested();
                     var lastWrite = File.GetLastWriteTimeUtc(sourcePath);
                     if ((DateTime.UtcNow - lastWrite).TotalSeconds < config.RecentFileGuardSeconds)
                     {
-                        summary.SkippedCount++;
-                        skipRecentGuardCount++;
+                        Interlocked.Increment(ref skippedCount);
+                        Interlocked.Increment(ref skipRecentGuardCounter);
                         _log.Debug($"skip_recent_guard file={sourcePath} guard_sec={config.RecentFileGuardSeconds}");
-                        continue;
+                        return;
                     }
 
                     var fileSize = new FileInfo(sourcePath).Length;
                     var cacheKey = $"{sourcePath}|{lastWrite.Ticks}|{fileSize}";
-                    if (_processedCache.ContainsKey(cacheKey))
+                    if (processedCache.ContainsKey(cacheKey))
                     {
-                        summary.SkippedCount++;
-                        skipCacheCount++;
+                        Interlocked.Increment(ref skippedCount);
+                        Interlocked.Increment(ref skipCacheCounter);
                         _log.Debug($"skip_processed_cache file={sourcePath}");
-                        continue;
+                        return;
                     }
 
-                    if (await _historyStore.ExistsAsync(sourcePath, lastWrite, fileSize, cancellationToken))
+                    if (await _historyStore.ExistsAsync(sourcePath, lastWrite, fileSize, ct))
                     {
-                        summary.SkippedCount++;
-                        skipHistoryCount++;
-                        _processedCache.TryAdd(cacheKey, 0);
+                        Interlocked.Increment(ref skippedCount);
+                        Interlocked.Increment(ref skipHistoryCounter);
+                        processedCache.TryAdd(cacheKey, 0);
                         _log.Debug($"skip_processed_history file={sourcePath}");
-                        continue;
+                        return;
                     }
 
                     var relativePath = Path.GetRelativePath(config.SourceDir, sourcePath);
                     var targetJpegPath = BuildJpegPath(config.JpegOutputDir, relativePath);
-                    _log.Debug($"file_paths source={sourcePath} jpeg_target={targetJpegPath}");
-
                     var originalJpegPath = targetJpegPath;
                     targetJpegPath = ResolveDuplicate(targetJpegPath, effectiveDuplicatePolicy, out var skipJpeg);
                     if (skipJpeg)
                     {
-                        summary.SkippedCount++;
-                        skipDuplicateCount++;
+                        Interlocked.Increment(ref skippedCount);
+                        Interlocked.Increment(ref skipDuplicateCounter);
                         _log.Debug($"skip_duplicate file={sourcePath} duplicate_policy={effectiveDuplicatePolicy}");
-                        continue;
+                        return;
                     }
+
+                    _log.Debug($"file_begin path={sourcePath} jpeg_target={targetJpegPath}");
                     if (!string.Equals(originalJpegPath, targetJpegPath, StringComparison.OrdinalIgnoreCase))
                     {
                         _log.Debug($"duplicate_renamed file={sourcePath} jpeg_target={targetJpegPath}");
@@ -119,7 +155,7 @@ public sealed class PhotoConversionService : IPhotoConversionService
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(targetJpegPath)!);
 
-                        ConvertPngToJpeg(sourcePath, targetJpegPath, config.JpegQuality, cancellationToken);
+                        ConvertPngToJpeg(sourcePath, targetJpegPath, config.JpegQuality, ct);
                         _log.Debug($"jpeg_saved source={sourcePath} target={targetJpegPath}");
 
                         if (pngAction == PngHandlingMode.Delete)
@@ -134,40 +170,140 @@ public sealed class PhotoConversionService : IPhotoConversionService
                     }
                     else
                     {
-                        dryRunCount++;
+                        Interlocked.Increment(ref dryRunCounter);
                         _log.Debug($"dryrun_skip_write source={sourcePath} target={targetJpegPath}");
                     }
 
-                    _processedCache.TryAdd(cacheKey, 0);
+                    processedCache.TryAdd(cacheKey, 0);
                     if (!config.DryRun)
                     {
-                        await _historyStore.MarkProcessedAsync(sourcePath, lastWrite, fileSize, cancellationToken);
+                        await _historyStore.MarkProcessedAsync(sourcePath, lastWrite, fileSize, ct);
                     }
-                    summary.ConvertedCount++;
-                    summary.ArchivedCount++;
+
+                    Interlocked.Increment(ref convertedCount);
                 }
                 catch (Exception ex)
                 {
-                    summary.ErrorCount++;
-                    summary.Errors.Add($"{sourcePath}: {ex.Message}");
+                    var newErrorCount = Interlocked.Increment(ref errorCount);
+                    lock (errorsLock)
+                    {
+                        if (summary.Errors.Count < MaxStoredErrors)
+                        {
+                            summary.Errors.Add($"{sourcePath}: {ex.Message}");
+                        }
+                    }
+
                     _log.Error(ex, $"E2000 変換失敗: {sourcePath}");
+                    reporter.Report(
+                        phase: "process",
+                        isIndeterminate: total == 0,
+                        totalFiles: total,
+                        scannedFiles: total,
+                        processedFiles: Volatile.Read(ref processedCount),
+                        convertedCount: Volatile.Read(ref convertedCount),
+                        skippedCount: Volatile.Read(ref skippedCount),
+                        errorCount: newErrorCount,
+                        currentFile: sourcePath,
+                        force: true);
                 }
-            }
+                finally
+                {
+                    var newProcessedCount = Interlocked.Increment(ref processedCount);
+                    reporter.Report(
+                        phase: "process",
+                        isIndeterminate: total == 0,
+                        totalFiles: total,
+                        scannedFiles: total,
+                        processedFiles: newProcessedCount,
+                        convertedCount: Volatile.Read(ref convertedCount),
+                        skippedCount: Volatile.Read(ref skippedCount),
+                        errorCount: Volatile.Read(ref errorCount),
+                        currentFile: sourcePath);
+                }
+            });
+
+            summary.ScannedCount = total;
+            summary.ConvertedCount = convertedCount;
+            summary.ArchivedCount = convertedCount;
+            summary.SkippedCount = skippedCount;
+            summary.ErrorCount = errorCount;
+            skipRecentGuardCount = skipRecentGuardCounter;
+            skipCacheCount = skipCacheCounter;
+            skipHistoryCount = skipHistoryCounter;
+            skipDuplicateCount = skipDuplicateCounter;
+            dryRunCount = dryRunCounter;
         }
         catch (Exception ex)
         {
-            summary.ErrorCount++;
-            summary.Errors.Add($"fatal: {ex.Message}");
+            summary.ErrorCount = Volatile.Read(ref errorCount) + 1;
+            lock (errorsLock)
+            {
+                if (summary.Errors.Count < MaxStoredErrors)
+                {
+                    summary.Errors.Add($"fatal: {ex.Message}");
+                }
+            }
+
             _log.Error(ex, "E3000 致命エラー");
         }
         finally
         {
             summary.EndedAt = DateTimeOffset.Now;
+            reporter.Report(
+                phase: "complete",
+                isIndeterminate: false,
+                totalFiles: summary.ScannedCount,
+                scannedFiles: summary.ScannedCount,
+                processedFiles: summary.ScannedCount,
+                convertedCount: summary.ConvertedCount,
+                skippedCount: summary.SkippedCount,
+                errorCount: summary.ErrorCount,
+                currentFile: string.Empty,
+                force: true);
+
             _log.Info(
                 $"run_complete trigger={summary.TriggerSource} scanned={summary.ScannedCount} converted={summary.ConvertedCount} archived={summary.ArchivedCount} skipped={summary.SkippedCount} skip_recent={skipRecentGuardCount} skip_cache={skipCacheCount} skip_history={skipHistoryCount} skip_duplicate={skipDuplicateCount} dryrun={dryRunCount} warn={summary.WarningCount} err={summary.ErrorCount}");
         }
 
         return summary;
+    }
+
+    private int CountPngFiles(
+        string sourceDir,
+        SearchOption option,
+        ProgressReporter reporter,
+        CancellationToken cancellationToken)
+    {
+        var count = 0;
+        foreach (var _ in Directory.EnumerateFiles(sourceDir, "*.png", option))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            count++;
+            reporter.Report(
+                phase: "scan",
+                isIndeterminate: true,
+                totalFiles: 0,
+                scannedFiles: count,
+                processedFiles: 0,
+                convertedCount: 0,
+                skippedCount: 0,
+                errorCount: 0,
+                currentFile: string.Empty);
+        }
+
+        reporter.Report(
+            phase: "scan",
+            isIndeterminate: false,
+            totalFiles: count,
+            scannedFiles: count,
+            processedFiles: 0,
+            convertedCount: 0,
+            skippedCount: 0,
+            errorCount: 0,
+            currentFile: string.Empty,
+            force: true);
+
+        return count;
     }
 
     private static string BuildJpegPath(string root, string relativePngPath)
@@ -225,5 +361,69 @@ public sealed class PhotoConversionService : IPhotoConversionService
         encoder.Frames.Add(frame);
         encoder.Save(outputStream);
     }
-}
 
+    private sealed class ProgressReporter
+    {
+        private const int ScanReportInterval = 200;
+        private const int ProcessReportInterval = 10;
+        private const int MinReportIntervalMs = 250;
+
+        private readonly IProgress<ConversionProgress>? _progress;
+        private long _lastReportTick = Environment.TickCount64;
+        private int _lastProcessedFiles = -1;
+        private int _lastScannedFiles = -1;
+        private string _lastPhase = string.Empty;
+
+        public ProgressReporter(IProgress<ConversionProgress>? progress)
+        {
+            _progress = progress;
+        }
+
+        public void Report(
+            string phase,
+            bool isIndeterminate,
+            int totalFiles,
+            int scannedFiles,
+            int processedFiles,
+            int convertedCount,
+            int skippedCount,
+            int errorCount,
+            string currentFile,
+            bool force = false)
+        {
+            if (_progress is null)
+            {
+                return;
+            }
+
+            var now = Environment.TickCount64;
+            var phaseChanged = !string.Equals(_lastPhase, phase, StringComparison.Ordinal);
+            var processedDelta = Math.Abs(processedFiles - _lastProcessedFiles);
+            var scannedDelta = Math.Abs(scannedFiles - _lastScannedFiles);
+            var enoughItems = processedDelta >= ProcessReportInterval || scannedDelta >= ScanReportInterval;
+            var enoughTime = now - _lastReportTick >= MinReportIntervalMs;
+
+            if (!force && !phaseChanged && !enoughItems && !enoughTime)
+            {
+                return;
+            }
+
+            _lastReportTick = now;
+            _lastProcessedFiles = processedFiles;
+            _lastScannedFiles = scannedFiles;
+            _lastPhase = phase;
+            _progress.Report(new ConversionProgress
+            {
+                Phase = phase,
+                IsIndeterminate = isIndeterminate,
+                TotalFiles = totalFiles,
+                ScannedFiles = scannedFiles,
+                ProcessedFiles = processedFiles,
+                ConvertedCount = convertedCount,
+                SkippedCount = skippedCount,
+                ErrorCount = errorCount,
+                CurrentFile = currentFile
+            });
+        }
+    }
+}

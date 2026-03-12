@@ -16,7 +16,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock x:Name="StepHeaderTextBlock" Text="ステップ1/2 ゲームを選択" FontSize="24" FontWeight="SemiBold"/>
-            <TextBlock x:Name="StepDescriptionTextBlock" Text="通常は VRChat のままで問題ありません。" Foreground="#5B6474" Margin="0,6,0,0"/>
+            <TextBlock x:Name="StepDescriptionTextBlock" Text="通常は VRChat を選択したままで問題ありません。" Foreground="#5B6474" Margin="0,6,0,0"/>
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource PanelBorderStyle}">
@@ -48,26 +48,34 @@
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,8,0" Text="入力フォルダ" VerticalAlignment="Center"/>
                     <TextBox x:Name="SourceDirTextBox" Grid.Row="0" Grid.Column="1" Margin="0,4,8,0"/>
-                    <Button Grid.Row="0" Grid.Column="2" Content="参照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,4,0,0" Click="BrowseSourceDir_Click"/>
+                    <Button Grid.Row="0" Grid.Column="2" Content="参照..." Style="{StaticResource SecondaryButtonStyle}" Margin="0,4,0,0" Click="BrowseSourceDir_Click"/>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,8,8,0" Text="JPEG出力先" VerticalAlignment="Center"/>
                     <TextBox x:Name="JpegDirTextBox" Grid.Row="1" Grid.Column="1" Margin="0,4,8,0"/>
-                    <Button Grid.Row="1" Grid.Column="2" Content="参照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,4,0,0" Click="BrowseJpegDir_Click"/>
+                    <Button Grid.Row="1" Grid.Column="2" Content="参照..." Style="{StaticResource SecondaryButtonStyle}" Margin="0,4,0,0" Click="BrowseJpegDir_Click"/>
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,8,8,0" Text="PNG処理" VerticalAlignment="Center"/>
                     <ComboBox x:Name="WizardPngModeComboBox" Grid.Row="2" Grid.Column="1" Margin="0,4,8,0" SelectedIndex="0">
-                        <ComboBoxItem Content="保持（Keep）"/>
-                        <ComboBoxItem Content="削除（Delete）"/>
+                        <ComboBoxItem Content="保持 (Keep)"/>
+                        <ComboBoxItem Content="削除 (Delete)"/>
                     </ComboBox>
 
-                    <CheckBox x:Name="StartMonitoringCheckBox" Grid.Row="3" Grid.Column="1" Margin="0,14,0,0" Content="起動直後に監視を開始する" IsChecked="True"/>
-                    <CheckBox x:Name="LaunchOnWindowsStartupCheckBox" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Content="Windows起動時にアプリを起動（最小化）" IsChecked="True"/>
+                    <CheckBox x:Name="StartMonitoringCheckBox" Grid.Row="3" Grid.Column="1" Margin="0,14,0,0" Content="設定完了後に監視を開始する" IsChecked="True"/>
+                    <CheckBox x:Name="LaunchOnWindowsStartupCheckBox" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Content="Windows起動時にアプリを自動起動する" IsChecked="True"/>
                     <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,8,0,0">
-                        <CheckBox x:Name="ConvertExistingFilesCheckBox" Content="初回起動時に既存PNGも変換する" IsChecked="False"/>
-                        <TextBlock Margin="0,6,0,0"
-                                   Foreground="#5B6474"
-                                   TextWrapping="Wrap"
-                                   Text="OFFの場合、既存PNGは『実施済み』として履歴に登録され、初回変換は行いません。"/>
+                        <CheckBox x:Name="ConvertExistingFilesCheckBox" Content="過去のPNGも初回変換の対象にする" IsChecked="False"/>
+                        <Border Margin="0,8,0,0" Padding="10,8" Background="#FEF3F2" BorderBrush="#F04438" BorderThickness="1" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock Foreground="#B42318"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           Text="過去ファイルが多いと、初回変換に非常に時間がかかります。通常はオフのままにすることを推奨します。"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="#B42318"
+                                           TextWrapping="Wrap"
+                                           Text="OFF の場合、既存PNGは処理済みとして登録され、今後新しく追加された画像だけを変換します。"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -79,13 +87,11 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="ValidationTextBlock" VerticalAlignment="Center" Foreground="#B42318"/>
             <Button x:Name="BackButton" Grid.Column="1" Content="戻る" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Click="Back_Click" IsEnabled="False"/>
             <Button x:Name="NextButton" Grid.Column="2" Content="次へ" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="Next_Click"/>
-            <Button x:Name="FinishButton" Grid.Column="3" Content="完了" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="Finish_Click" Visibility="Collapsed"/>
-            <Button Grid.Column="4" Content="キャンセル" Style="{StaticResource SecondaryButtonStyle}" Click="Cancel_Click"/>
+            <Button x:Name="FinishButton" Grid.Column="3" Content="完了" Style="{StaticResource PrimaryButtonStyle}" Click="Finish_Click" Visibility="Collapsed"/>
         </Grid>
     </Grid>
 </Window>

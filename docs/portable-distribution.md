@@ -16,10 +16,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Configuration Re
 
 生成物:
 - フォルダ: `publish\win-x64\`
-- zip: `dist\VRCJpegAutoGenerator-portable.zip`
+- zip: `dist\VRCJpegAutoGenerator-v<version>-portable.zip`
 
 ## 配布物の中身
-`dist\VRCJpegAutoGenerator-portable.zip` には次が含まれます。
+`dist\VRCJpegAutoGenerator-v<version>-portable.zip` には次が含まれます。
 
 - `VRCJpegAutoGenerator\VRCJpegAutoGenerator.exe`
 - 実行に必要な publish 一式

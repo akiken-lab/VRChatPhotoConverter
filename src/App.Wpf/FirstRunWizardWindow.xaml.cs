@@ -101,7 +101,7 @@ public partial class FirstRunWizardWindow : Window
                 new()
                 {
                     Mode = WatchTargetMode.ExeOnly,
-                    ExeName = @"C:\Program Files (x86)\Steam\steamapps\common\VRChat\VRChat.exe",
+                    ExeName = "VRChat.exe",
                     AppId = null,
                     ProfileId = id,
                     ProfileName = "VRChat_Default"

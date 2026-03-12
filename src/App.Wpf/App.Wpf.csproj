@@ -11,6 +11,10 @@
     <AssemblyName>VRCJpegAutoGenerator</AssemblyName>
     <Product>VRC JPEG Auto Generator</Product>
     <AssemblyTitle>VRC JPEG Auto Generator</AssemblyTitle>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>

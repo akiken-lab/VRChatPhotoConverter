@@ -137,6 +137,10 @@
             </Border>
         </Grid>
 
-        <TextBlock x:Name="ProgressTextBlock" Grid.Row="3" Margin="2,12,0,0" Foreground="#5B6474" Text="待機中"/>
+        <StackPanel Grid.Row="3" Margin="2,12,0,0">
+            <TextBlock x:Name="ProgressTextBlock" Foreground="#344054" Text="待機中"/>
+            <ProgressBar x:Name="ConversionProgressBar" Height="10" Margin="0,8,0,0" Minimum="0" Maximum="1" Value="0"/>
+            <TextBlock x:Name="ProgressDetailTextBlock" Margin="0,8,0,0" Foreground="#5B6474" Text=""/>
+        </StackPanel>
     </Grid>
 </Window>

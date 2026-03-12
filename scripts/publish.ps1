@@ -9,6 +9,13 @@ if (-not (Test-Path $dotnet)) {
     throw "dotnet.exe が見つかりません: $dotnet"
 }
 
+$projectFile = Join-Path (Get-Location) "src\App.Wpf\App.Wpf.csproj"
+[xml]$projectXml = Get-Content $projectFile
+$version = $projectXml.Project.PropertyGroup.Version | Select-Object -First 1
+if ([string]::IsNullOrWhiteSpace($version)) {
+    $version = "0.0.0"
+}
+
 & $dotnet publish .\src\App.Wpf\App.Wpf.csproj `
     -c $Configuration `
     -r win-x64 `
@@ -37,7 +44,7 @@ if (-not $NoZip) {
     $distDir = Join-Path (Get-Location) "dist"
     New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
-    $zipPath = Join-Path $distDir "VRCJpegAutoGenerator-portable.zip"
+    $zipPath = Join-Path $distDir ("VRCJpegAutoGenerator-v" + $version + "-portable.zip")
     if (Test-Path $zipPath) {
         Remove-Item $zipPath -Force
     }

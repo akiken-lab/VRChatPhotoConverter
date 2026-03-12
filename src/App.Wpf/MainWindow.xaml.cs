@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private int _lastErrors;
     private DateTimeOffset? _lastRunAt;
     private string? _lastError;
+    private string _activeRuleName = string.Empty;
 
     public MainWindow()
     {
@@ -238,9 +239,10 @@ public partial class MainWindow : Window
     {
         var total = CountExistingPngFiles(config);
         var markedCount = 0;
+        var monitoringMessage = config.MonitorEnabledOnStartup ? " 完了後に監視を開始します。" : string.Empty;
         if (total > 0)
         {
-            ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています (0/{total})";
+            ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています (0/{total})。{monitoringMessage}".Trim();
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
         }
 
@@ -273,7 +275,7 @@ public partial class MainWindow : Window
                     markedCount++;
                     if (total > 0 && (markedCount == total || markedCount % 25 == 0))
                     {
-                        ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています ({markedCount}/{total})";
+                        ProgressTextBlock.Text = $"初回準備中: 既存PNGを処理済み登録しています ({markedCount}/{total})。{monitoringMessage}".Trim();
                         await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                     }
                 }
@@ -287,7 +289,7 @@ public partial class MainWindow : Window
         UiDiagnostics.LogMessage("SeedHistory", $"marked_existing_png={markedCount}");
         if (total > 0)
         {
-            ProgressTextBlock.Text = $"初回準備完了: 既存PNG {markedCount}/{total} 枚を処理済み登録しました";
+            ProgressTextBlock.Text = $"初回準備完了: 既存PNG {markedCount}/{total} 枚を処理済み登録しました。{monitoringMessage}".Trim();
         }
     }
 
@@ -382,26 +384,27 @@ public partial class MainWindow : Window
         }
 
         RunNowButton.IsEnabled = false;
-        ProgressTextBlock.Text = "実行中...";
+        _activeRuleName = rules.Count == 1 ? rules[0].Name : $"{rules.Count} 件のルール";
+        SetIdleProgressState("実行準備中...");
 
         try
         {
             var totalScanned = 0;
             var totalConverted = 0;
+            var totalSkipped = 0;
             var totalErrors = 0;
             string? firstError = null;
 
             foreach (var rule in rules)
             {
                 var runtimeConfig = BuildRuntimeConfig(rule);
-                var progress = new Progress<ConversionProgress>(p =>
-                {
-                    ProgressTextBlock.Text = $"実行中: {Path.GetFileName(p.CurrentFile)} ({p.ProcessedFiles}/{Math.Max(p.TotalFiles, 1)})";
-                });
+                _activeRuleName = rule.Name;
+                var progress = new Progress<ConversionProgress>(UpdateConversionProgressUi);
 
-                var result = await _converter.RunAsync(runtimeConfig, trigger, progress);
+                var result = await Task.Run(() => _converter.RunAsync(runtimeConfig, trigger, progress));
                 totalScanned += result.ScannedCount;
                 totalConverted += result.ConvertedCount;
+                totalSkipped += result.SkippedCount;
                 totalErrors += result.ErrorCount;
 
                 if (firstError is null && result.Errors.Count > 0)
@@ -418,7 +421,7 @@ public partial class MainWindow : Window
 
             RefreshLogTail();
             UpdateStatusUi();
-            ProgressTextBlock.Text = "処理完了";
+            SetCompletedProgressState(totalConverted, totalSkipped, totalErrors);
         }
         catch (Exception ex)
         {
@@ -426,7 +429,7 @@ public partial class MainWindow : Window
             _lastError = ex.Message;
             _lastRunAt = DateTimeOffset.Now;
             UpdateStatusUi();
-            ProgressTextBlock.Text = "処理エラー";
+            SetErrorProgressState(ex.Message);
         }
         finally
         {
@@ -450,6 +453,79 @@ public partial class MainWindow : Window
             RecentFileGuardSeconds = rule.RecentFileGuardSeconds,
             LogLevel = _config.LogLevel
         };
+    }
+
+    private void UpdateConversionProgressUi(ConversionProgress progress)
+    {
+        ConversionProgressBar.IsIndeterminate = progress.IsIndeterminate;
+
+        if (progress.IsIndeterminate || progress.TotalFiles <= 0)
+        {
+            ConversionProgressBar.Maximum = 1;
+            ConversionProgressBar.Value = 0;
+        }
+        else
+        {
+            ConversionProgressBar.Maximum = progress.TotalFiles;
+            ConversionProgressBar.Value = Math.Min(progress.ProcessedFiles, progress.TotalFiles);
+        }
+
+        var currentFileName = string.IsNullOrWhiteSpace(progress.CurrentFile)
+            ? string.Empty
+            : Path.GetFileName(progress.CurrentFile);
+
+        ProgressTextBlock.Text = progress.Phase switch
+        {
+            "scan" => $"スキャン中: {_activeRuleName} の PNG を数えています ({progress.ScannedFiles} 件検出)",
+            "process" when progress.TotalFiles > 0 => $"変換中: {progress.ProcessedFiles}/{progress.TotalFiles} 件",
+            "process" => $"変換中: {progress.ProcessedFiles} 件処理",
+            "complete" => "処理完了",
+            _ => "実行中..."
+        };
+
+        ProgressDetailTextBlock.Text = progress.Phase switch
+        {
+            "scan" => "総数を確認中です。件数確定後に進捗バーを表示します。",
+            "process" => BuildProcessDetail(progress, currentFileName),
+            "complete" => $"成功 {progress.ConvertedCount} 件 / スキップ {progress.SkippedCount} 件 / エラー {progress.ErrorCount} 件",
+            _ => string.Empty
+        };
+    }
+
+    private static string BuildProcessDetail(ConversionProgress progress, string currentFileName)
+    {
+        var counts = $"成功 {progress.ConvertedCount} 件 / スキップ {progress.SkippedCount} 件 / エラー {progress.ErrorCount} 件";
+        if (string.IsNullOrWhiteSpace(currentFileName))
+        {
+            return counts;
+        }
+
+        return $"{counts} / 現在: {currentFileName}";
+    }
+
+    private void SetIdleProgressState(string message)
+    {
+        ConversionProgressBar.IsIndeterminate = false;
+        ConversionProgressBar.Maximum = 1;
+        ConversionProgressBar.Value = 0;
+        ProgressTextBlock.Text = message;
+        ProgressDetailTextBlock.Text = string.Empty;
+    }
+
+    private void SetCompletedProgressState(int converted, int skipped, int errors)
+    {
+        ConversionProgressBar.IsIndeterminate = false;
+        ConversionProgressBar.Maximum = Math.Max(converted + skipped + errors, 1);
+        ConversionProgressBar.Value = ConversionProgressBar.Maximum;
+        ProgressTextBlock.Text = "処理完了";
+        ProgressDetailTextBlock.Text = $"成功 {converted} 件 / スキップ {skipped} 件 / エラー {errors} 件";
+    }
+
+    private void SetErrorProgressState(string message)
+    {
+        ConversionProgressBar.IsIndeterminate = false;
+        ProgressTextBlock.Text = "処理エラー";
+        ProgressDetailTextBlock.Text = message;
     }
 
     private void MonitorOnGameExited(object? sender, string processName)

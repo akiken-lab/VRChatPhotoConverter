@@ -1,5 +1,6 @@
-﻿VRC JPEG Auto Generator
+VRC JPEG Auto Generator
 =======================
+Version 1.0.1
 
 概要
 ----
